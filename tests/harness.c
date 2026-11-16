@@ -14,6 +14,7 @@
 int run_probe(unsigned int rdesc_size, const unsigned char **output, int *output_length);
 int run_rdesc_fixup(unsigned char *data, unsigned long capacity, int size, const char **name);
 int run_device_event(unsigned char *data, unsigned long capacity, int size);
+void set_pen_upper_button(const char *value);
 
 #define DESCRIPTOR_CAPACITY 4096 /* the kernel hands the fixup a buffer this large */
 #define REPORT_CAPACITY 16	 /* a 14-byte report, in the kernel's 8-byte steps */
@@ -118,6 +119,11 @@ int main(int argc, char **argv)
 		char name[64], hex[128];
 		int size, result;
 
+		/* "@upper-button VALUE" sets the udev property for the vectors after it; "unset" clears it. */
+		if (sscanf(line, " @upper-button %63s", name) == 1) {
+			set_pen_upper_button(strcmp(name, "unset") ? name : "");
+			continue;
+		}
 		if (line[0] == '#' || sscanf(line, " %63[^| ] | %127[0-9a-fA-F ]", name, hex) != 2)
 			continue;
 		size = from_hex(hex, report, sizeof(report));

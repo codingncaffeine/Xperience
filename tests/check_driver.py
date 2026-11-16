@@ -24,7 +24,7 @@ def read_vectors(path):
     vectors = {}
     for line in open(path):
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line or line.startswith(("#", "@")):
             continue
         name, raw, expect = (part.strip() for part in line.split("|"))
         vectors[name] = (raw.lower(), expect.split())
@@ -190,7 +190,10 @@ CONTROLS = [
     ("X loses its high byte", "event", "pen-far-corner-full", swap("670a01", "670a00"), "pen-far-corner-full"),
     ("pressure loses bit 13", "event", "pen-far-corner-full", swap("ff3f", "ff1f"), "pen-far-corner-full"),
     ("tilt changes sign", "event", "pen-tilt", swap("14ec", "ec14"), "pen-tilt"),
-    ("upper button reported as lower", "event", "pen-upper-button", swap("0724", "0722"), "pen-upper-button"),
+    ("upper button left a plain button by default", "event", "pen-upper-button", swap("0728", "0724"), "pen-upper-button"),
+    ("upper button still an eraser when set to button", "event", "upper-as-button", swap("0724", "0728"), "upper-as-button"),
+    ("upper button reported as lower", "event", "upper-as-button", swap("0724", "0722"), "upper-as-button"),
+    ("a mistyped setting changes the pen", "event", "upper-wrong-case", swap("0728", "0724"), "upper-wrong-case"),
     ("eraser contact not flagged", "event", "eraser-down", swap("0739", "0729"), "eraser-down"),
     ("pen left range but still in range", "event", "pen-gone", swap("0700", "0720"), "pen-gone"),
     ("dial turns the wrong way", "event", "dial1-up-recorded", swap("000100", "00ff00"), "dial1-up-recorded"),

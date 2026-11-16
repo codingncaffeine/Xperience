@@ -74,6 +74,7 @@ HID_BPF_CONFIG(
 #define RAW_KIND_PEN_GONE 0xc0
 
 #define RAW_PEN_TIP 0x01
+#define RAW_PEN_UPPER_BUTTON 0x04
 #define RAW_PEN_ERASER 0x08
 
 #define RAW_DIAL1_UP 0x01
@@ -100,6 +101,15 @@ HID_BPF_CONFIG(
 /* The active area in tenths of a millimeter. */
 #define PEN_WIDTH 3410
 #define PEN_HEIGHT 1918
+
+/*
+ * What the upper pen button does. Left to itself the tablet reports it as an
+ * eraser, and drawing programs switch to their eraser while it is held, so
+ * that is what an unset property keeps. "button" makes it a second barrel
+ * button instead. udev-hid-bpf fills this in from the udev property of the
+ * same name when it loads the program.
+ */
+char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
 
 static const __u8 disabled_rdesc[] = {
 	/* Same report length as before, so the reports still fit. */
@@ -317,13 +327,21 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 			pressure_high |= 0x20;
 
 		if (kind != RAW_KIND_PEN_GONE) {
-			state = (kind & PEN_STATE_RAW_BITS) | PEN_STATE_IN_RANGE;
+			__u8 bits = kind & PEN_STATE_RAW_BITS;
+
+			if ((bits & RAW_PEN_UPPER_BUTTON) &&
+			    UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[0] != 'b') {
+				bits &= ~RAW_PEN_UPPER_BUTTON;
+				bits |= RAW_PEN_ERASER;
+			}
+
+			state = bits | PEN_STATE_IN_RANGE;
 			/*
-			 * The kernel takes contact with the eraser end from
-			 * the Eraser usage and ignores the tip switch while
-			 * the eraser is the tool in range.
+			 * The kernel takes contact with the eraser from the
+			 * Eraser usage and ignores the tip switch while the
+			 * eraser is the tool in range.
 			 */
-			if ((kind & RAW_PEN_ERASER) && (kind & RAW_PEN_TIP))
+			if ((bits & RAW_PEN_ERASER) && (bits & RAW_PEN_TIP))
 				state |= PEN_STATE_ERASER_DOWN;
 		}
 

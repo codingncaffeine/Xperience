@@ -11,6 +11,7 @@
 int probe(struct hid_bpf_probe_args *ctx);
 int xppen_artist16_3rd_rdesc_fixup(struct hid_bpf_ctx *hctx);
 int xppen_artist16_3rd_device_event(struct hid_bpf_ctx *hctx);
+extern char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
 
 static struct hid_device device;
 static struct hid_bpf_ctx context;
@@ -88,4 +89,14 @@ int run_device_event(unsigned char *data, unsigned long capacity, int size)
 {
 	use(data, capacity, size);
 	return xppen_artist16_3rd_device_event(&context);
+}
+
+/* Plays udev-hid-bpf filling in the property at load time; an empty value leaves it unset. */
+void set_pen_upper_button(const char *value)
+{
+	unsigned int i = 0;
+
+	__builtin_memset(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON, 0, sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON));
+	for (; value[i] && i < sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON) - 1; i++)
+		UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[i] = value[i];
 }
