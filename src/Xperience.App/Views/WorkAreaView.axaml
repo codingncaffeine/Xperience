@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             xmlns:c="using:Xperience.App.Controls"
+             x:Class="Xperience.App.Views.WorkAreaView"
+             x:DataType="vm:WorkAreaViewModel">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Classes="icon" Command="{Binding Main.ShowHomeCommand}" ToolTip.Tip="Back to the tablet">
+                <PathIcon Data="{StaticResource IconBack}" Width="16" Height="16" />
+            </Button>
+            <TextBlock Classes="title" Text="Work area" FontSize="17" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <c:MappingDiagram Grid.Row="1" Margin="12,14,12,18" Screens="{Binding Screens}" TargetKind="{Binding TargetKind}"
+                          TargetScreen="{Binding TargetScreen}" ScreenArea="{Binding ScreenArea}" Model="{Binding Model}"
+                          Turned="{Binding Turned}" />
+
+        <Grid Grid.Row="2" ColumnDefinitions="3*,20,2*" IsEnabled="{Binding HasPen}">
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <TextBlock Classes="heading" Text="SCREEN" />
+                    <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" />
+                    <Grid ColumnDefinitions="*,10,*,10,*">
+                        <Button Classes="action" Classes.picked="{Binding IsWholeScreen}" Content="Whole screen"
+                                HorizontalAlignment="Stretch" Command="{Binding WholeScreenCommand}" IsEnabled="{Binding CanSetArea}"
+                                ToolTip.Tip="The pen reaches every part of the screen" />
+                        <Button Grid.Column="2" Classes="action" Classes.picked="{Binding IsSameShape}" Content="Match pen shape"
+                                HorizontalAlignment="Stretch" Command="{Binding SameShapeCommand}" IsEnabled="{Binding CanSetArea}"
+                                ToolTip.Tip="Use the middle of the screen in the pen area's shape, so circles stay round" />
+                        <Button Grid.Column="4" Classes="action" Content="Identify" HorizontalAlignment="Stretch"
+                                Command="{Binding IdentifyCommand}" ToolTip.Tip="Show each monitor's name on that monitor" />
+                    </Grid>
+                    <TextBlock Classes="muted" Text="{Binding ShapeNote}" FontSize="12.5" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Classes="card">
+                <StackPanel Spacing="12">
+                    <TextBlock Classes="heading" Text="PEN DISPLAY" />
+                    <ComboBox ItemsSource="{Binding Rotations}" SelectedIndex="{Binding RotationIndex}" IsEnabled="{Binding CanFlip}" />
+                    <TextBlock Classes="muted" FontSize="12.5"
+                               Text="Pick 180° when the tablet is turned around so its keys sit on the right. The change takes effect the next time the pen comes near the surface." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

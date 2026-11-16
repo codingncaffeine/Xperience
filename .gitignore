@@ -1,6 +1,16 @@
 # Plans, notes and third-party reference material stay local.
 /local-notes/
 
-# Dev build output.
+# Dev build output: bin/xperience is the launcher, refreshed by tools/build.sh.
 /bin/
 /build/
+
+# Machine-local helpers and test output.
+/scratch/
+
+# .NET build output.
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+.idea/

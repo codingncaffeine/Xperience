@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Xperience.App.ViewModels"
+        xmlns:views="using:Xperience.App.Views"
+        x:Class="Xperience.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Xperience"
+        Width="1120" Height="740" MinWidth="980" MinHeight="660"
+        Background="{DynamicResource XpBg}">
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
+        <DataTemplate DataType="vm:WorkAreaViewModel"><views:WorkAreaView /></DataTemplate>
+        <DataTemplate DataType="vm:PenViewModel"><views:PenView /></DataTemplate>
+        <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+    </Window.DataTemplates>
+
+    <Window.Styles>
+        <Style Selector="Ellipse.dot">
+            <Setter Property="Fill" Value="{DynamicResource XpTextFaint}" />
+        </Style>
+        <Style Selector="Ellipse.dot.good">
+            <Setter Property="Fill" Value="{DynamicResource XpGood}" />
+        </Style>
+        <Style Selector="Ellipse.dot.warn">
+            <Setter Property="Fill" Value="{DynamicResource XpWarn}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid ColumnDefinitions="84,*">
+        <!-- Pages -->
+        <Border Background="{DynamicResource XpPanel}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding Version}" FontSize="11" HorizontalAlignment="Center"
+                           Margin="0,0,0,14" Foreground="{DynamicResource XpTextFaint}" />
+                <StackPanel Spacing="10" Margin="0,18,0,0">
+                    <Border Width="44" Height="44" CornerRadius="13" Background="{DynamicResource XpAccent}" Margin="0,0,0,18"
+                            HorizontalAlignment="Center">
+                        <TextBlock Text="X" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource XpOnAccent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Button Classes="nav" Classes.active="{Binding IsTabletPage}" Command="{Binding ShowHomeCommand}" ToolTip.Tip="Tablet">
+                        <PathIcon Data="{StaticResource IconTablet}" />
+                    </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsPenPage}" Command="{Binding ShowPenCommand}" ToolTip.Tip="Pen">
+                        <PathIcon Data="{StaticResource IconPen}" />
+                    </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsSettingsPage}" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings">
+                        <PathIcon Data="{StaticResource IconSettings}" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*">
+            <!-- The tablet and its state -->
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="28,20,24,12">
+                <TextBlock Classes="title" Text="{Binding Model.Name}" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Margin="16,0,0,0" Padding="12,5" CornerRadius="999" VerticalAlignment="Center"
+                        Background="{DynamicResource XpCard}" BorderBrush="{DynamicResource XpLine}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Classes="dot" Classes.good="{Binding StatusGood}" Classes.warn="{Binding StatusWarn}"
+                                 Width="8" Height="8" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding StatusText}" FontSize="12.5" Foreground="{DynamicResource XpTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Button Grid.Column="3" Classes="icon" Command="{Binding RefreshCommand}" ToolTip.Tip="Read the tablet and the desktop again">
+                    <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16" />
+                </Button>
+            </Grid>
+
+            <!-- Anything that stops the settings from holding -->
+            <StackPanel Grid.Row="1" Margin="28,0,24,0" Spacing="8">
+                <Border CornerRadius="10" Padding="14,10" Background="{DynamicResource XpWarnSoft}"
+                        IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Foreground="{DynamicResource XpText}" />
+                </Border>
+                <Border CornerRadius="10" Padding="14,10" Background="{DynamicResource XpWarnSoft}"
+                        IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" Foreground="{DynamicResource XpText}" />
+                </Border>
+            </StackPanel>
+
+            <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="28,12,24,24" />
+        </Grid>
+    </Grid>
+</Window>

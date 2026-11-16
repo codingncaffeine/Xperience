@@ -1,0 +1,28 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Xperience.App.App"
+             Name="Xperience">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Themes/Tokens.axaml" />
+                <ResourceInclude Source="/Themes/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme>
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Dark" Accent="#8B9BFF" RegionColor="#14161B" AltHigh="#14161B"
+                                       ChromeMedium="#20242C" ChromeMediumLow="#1A1D24" ChromeLow="#14161B"
+                                       BaseLow="#2F3541" ListLow="#282D37" ListMedium="#2F3541" />
+                <ColorPaletteResources x:Key="Light" Accent="#4758E0" RegionColor="#F3F4F8" AltHigh="#FFFFFF"
+                                       ChromeMedium="#FFFFFF" ChromeMediumLow="#F4F5FA" ChromeLow="#E8EAF0"
+                                       BaseLow="#D6DAE3" ListLow="#F4F5FA" ListMedium="#E8EAF0" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
+        <StyleInclude Source="/Themes/Styles.axaml" />
+    </Application.Styles>
+</Application>

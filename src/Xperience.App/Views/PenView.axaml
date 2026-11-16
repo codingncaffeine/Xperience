@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             xmlns:c="using:Xperience.App.Controls"
+             x:Class="Xperience.App.Views.PenView"
+             x:DataType="vm:PenViewModel">
+    <UserControl.Styles>
+        <Style Selector="Button.preset">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,24,230,24,280" IsEnabled="{Binding HasPen}">
+        <!-- Pressure response and a place to try it -->
+        <Grid RowDefinitions="Auto,3*,Auto,2*">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                <TextBlock Classes="heading" Text="PRESSURE" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="action" MinHeight="32" Padding="14,4" FontSize="12.5" Content="Reset"
+                        Command="{Binding ResetPressureCommand}" IsEnabled="{Binding !IsDefault}" />
+            </Grid>
+            <Border Grid.Row="1" Classes="card" Padding="8">
+                <c:CurveEditor x:Name="Editor" Curve="{Binding Curve}" RangeMin="{Binding RangeMin}" RangeMax="{Binding RangeMax}"
+                               CanMoveEnds="{Binding CanSetRange}" Live="{Binding PressureShare}" />
+            </Border>
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,12,0,14">
+                <TextBlock Classes="muted" Text="Soft" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <UniformGrid Grid.Column="1" Rows="1" HorizontalAlignment="Center">
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=0}" Content="1" Command="{Binding UsePresetCommand}" CommandParameter="0" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=1}" Content="2" Command="{Binding UsePresetCommand}" CommandParameter="1" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=2}" Content="3" Command="{Binding UsePresetCommand}" CommandParameter="2" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=3}" Content="4" Command="{Binding UsePresetCommand}" CommandParameter="3" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=4}" Content="5" Command="{Binding UsePresetCommand}" CommandParameter="4" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=5}" Content="6" Command="{Binding UsePresetCommand}" CommandParameter="5" Margin="3,0" />
+                    <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=6}" Content="7" Command="{Binding UsePresetCommand}" CommandParameter="6" Margin="3,0" />
+                </UniformGrid>
+                <TextBlock Grid.Column="2" Classes="muted" Text="Hard" FontSize="12.5" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </Grid>
+            <Border Grid.Row="3" Classes="card" Padding="0" ClipToBounds="True">
+                <Grid>
+                    <c:ScribbleArea x:Name="Scribble" Pressure="{Binding PressureShare}" />
+                    <Button Classes="icon" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10" Click="OnClear"
+                            ToolTip.Tip="Clear">
+                        <PathIcon Data="{StaticResource IconClear}" Width="16" Height="16" />
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- The pen and its buttons -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+            <TextBlock Classes="heading" Text="BUTTONS" Margin="0,0,0,10" />
+            <c:PenArt Grid.Row="1" UpperLabel="{Binding UpperLabel}" LowerLabel="{Binding LowerLabel}"
+                      UpperPressed="{Binding UpperPressed}" LowerPressed="{Binding LowerPressed}" Touching="{Binding Touching}" />
+        </Grid>
+
+        <!-- Options and the live reading -->
+        <StackPanel Grid.Column="4" Spacing="16">
+            <TextBlock Classes="heading" Text="OPTIONS" Margin="0,0,0,-6" />
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <CheckBox Content="Mouse mode" IsChecked="{Binding MouseMode}" />
+                    <TextBlock Classes="muted" FontSize="12.5"
+                               Text="The pen moves the pointer from where it is, like a mouse, and the pointer stays put when the pen lifts." />
+                </StackPanel>
+            </Border>
+            <TextBlock Classes="heading" Text="CURRENT PRESSURE" Margin="0,4,0,-6" />
+            <Border Classes="card" Padding="14,18,14,10">
+                <StackPanel Spacing="6">
+                    <c:PressureGauge Value="{Binding PressureRaw}" Maximum="{Binding PressureMax}" Height="132" />
+                    <TextBlock Classes="muted" FontSize="12.5" Text="{Binding LiveNote}"
+                               IsVisible="{Binding LiveNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

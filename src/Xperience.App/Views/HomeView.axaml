@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             xmlns:c="using:Xperience.App.Controls"
+             x:Class="Xperience.App.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+    <Grid RowDefinitions="*,Auto,Auto">
+        <c:TabletArt Model="{Binding Model}" Turned="{Binding Turned}" KeyLabels="{Binding KeyLabels}"
+                     DialLabels="{Binding DialLabels}" Margin="24,8,24,20" MaxWidth="860" />
+
+        <Border Grid.Row="1" Classes="card" Padding="16,12" Margin="0,0,0,16" MaxWidth="860" IsVisible="{Binding ShowMode}">
+            <StackPanel Spacing="3">
+                <TextBlock Text="{Binding ModeTitle}" FontWeight="SemiBold" />
+                <TextBlock Classes="muted" Text="{Binding ModeText}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center">
+            <Button Classes="action" MinWidth="220" Content="Work area" Command="{Binding Main.ShowWorkAreaCommand}" />
+            <Button Classes="action" MinWidth="220" Content="Pen settings" Command="{Binding Main.ShowPenCommand}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

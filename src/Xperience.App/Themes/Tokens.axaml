@@ -1,0 +1,54 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Every color the window uses, once per theme. Views and drawn controls take them by name. -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="XpBg" Color="#14161B" />
+            <SolidColorBrush x:Key="XpPanel" Color="#1A1D24" />
+            <SolidColorBrush x:Key="XpCard" Color="#20242C" />
+            <SolidColorBrush x:Key="XpCardHover" Color="#282D37" />
+            <SolidColorBrush x:Key="XpLine" Color="#2F3541" />
+            <SolidColorBrush x:Key="XpText" Color="#E7E9EE" />
+            <SolidColorBrush x:Key="XpTextMuted" Color="#9AA2B1" />
+            <SolidColorBrush x:Key="XpTextFaint" Color="#6B7384" />
+            <SolidColorBrush x:Key="XpAccent" Color="#8B9BFF" />
+            <SolidColorBrush x:Key="XpAccentSoft" Color="#8B9BFF" Opacity="0.16" />
+            <SolidColorBrush x:Key="XpOnAccent" Color="#0E1020" />
+            <SolidColorBrush x:Key="XpGood" Color="#5FD3A6" />
+            <SolidColorBrush x:Key="XpWarn" Color="#F2B55C" />
+            <SolidColorBrush x:Key="XpWarnSoft" Color="#F2B55C" Opacity="0.14" />
+            <SolidColorBrush x:Key="XpTabletBody" Color="#2B303A" />
+            <SolidColorBrush x:Key="XpTabletEdge" Color="#3B4250" />
+            <SolidColorBrush x:Key="XpTabletScreen" Color="#0F1116" />
+            <SolidColorBrush x:Key="XpTabletKey" Color="#434A5A" />
+            <SolidColorBrush x:Key="XpScreenFill" Color="#262B35" />
+            <SolidColorBrush x:Key="XpOnTablet" Color="#E7E9EE" />
+            <SolidColorBrush x:Key="XpOnTabletAccent" Color="#9AA8FF" />
+            <SolidColorBrush x:Key="XpOnTabletFaint" Color="#6B7384" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="XpBg" Color="#F3F4F8" />
+            <SolidColorBrush x:Key="XpPanel" Color="#E8EAF0" />
+            <SolidColorBrush x:Key="XpCard" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="XpCardHover" Color="#F4F5FA" />
+            <SolidColorBrush x:Key="XpLine" Color="#D6DAE3" />
+            <SolidColorBrush x:Key="XpText" Color="#1B1E26" />
+            <SolidColorBrush x:Key="XpTextMuted" Color="#565E6E" />
+            <SolidColorBrush x:Key="XpTextFaint" Color="#8A91A0" />
+            <SolidColorBrush x:Key="XpAccent" Color="#4758E0" />
+            <SolidColorBrush x:Key="XpAccentSoft" Color="#4758E0" Opacity="0.11" />
+            <SolidColorBrush x:Key="XpOnAccent" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="XpGood" Color="#1C8F64" />
+            <SolidColorBrush x:Key="XpWarn" Color="#A8650A" />
+            <SolidColorBrush x:Key="XpWarnSoft" Color="#F2B55C" Opacity="0.22" />
+            <SolidColorBrush x:Key="XpTabletBody" Color="#3A404C" />
+            <SolidColorBrush x:Key="XpTabletEdge" Color="#262B35" />
+            <SolidColorBrush x:Key="XpTabletScreen" Color="#12141A" />
+            <SolidColorBrush x:Key="XpTabletKey" Color="#596172" />
+            <SolidColorBrush x:Key="XpScreenFill" Color="#DDE1EA" />
+            <SolidColorBrush x:Key="XpOnTablet" Color="#E7E9EE" />
+            <SolidColorBrush x:Key="XpOnTabletAccent" Color="#9AA8FF" />
+            <SolidColorBrush x:Key="XpOnTabletFaint" Color="#6B7384" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

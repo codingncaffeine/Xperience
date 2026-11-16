@@ -2,7 +2,19 @@
 
 Linux support for the XPPen Artist 16 3rd pen display.
 
-**Status: early.** The driver builds and passes its offline tests. It has not been run on the tablet yet.
+**Status: early.** The settings app runs. The driver builds and passes its offline tests; it has not been run on the tablet yet.
+
+## Settings app
+
+`tools/build.sh` builds everything and refreshes `bin/`; `bin/xperience` opens the settings window. It works with
+KDE Plasma on Wayland for now. What it sets is stored by the desktop itself, so it holds when the window is closed:
+
+- which monitor the pen works on, and which part of it
+- the tablet turned 180° for left-handed use
+- the pressure curve, with a live pressure reading and a patch to try it on
+- mouse mode
+
+`bin/xperience --status` prints what was found. Assigning the keys and dials comes with the driver below.
 
 ## Driver
 
@@ -17,7 +29,7 @@ so the desktop's own tablet settings can map and rebind them.
 
 ```
 tools/build-driver.sh    # needs clang and the libbpf headers; writes bin/0010-XPPen__Artist16_3rd.bpf.o
-tools/test-driver.sh     # needs python3; no root and no tablet
+tools/test.sh            # every test, the driver's and the app's; no root and no tablet
 ```
 
 ## License

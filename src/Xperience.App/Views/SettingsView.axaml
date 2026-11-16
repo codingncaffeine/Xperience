@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             x:Class="Xperience.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.key">
+            <Setter Property="Foreground" Value="{DynamicResource XpTextMuted}" />
+            <Setter Property="Margin" Value="0,0,24,0" />
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer>
+        <StackPanel Spacing="16" Width="760" HorizontalAlignment="Left">
+            <TextBlock Classes="heading" Text="DIAGNOSTICS" />
+            <Border Classes="card">
+                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+                    <TextBlock Classes="key" Text="Tablet" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding TabletLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Classes="key" Text="Mode" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding ModeLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="2" Classes="key" Text="Desktop" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding DesktopLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="3" Classes="key" Text="Pen device" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding PenLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="4" Classes="key" Text="Pen mapped to" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Text="{Binding MappingLine}" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <TextBlock Classes="heading" Text="PEN RIGHT NOW" Margin="0,6,0,0" />
+            <Border Classes="card">
+                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                    <TextBlock Classes="key" Text="Tool" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding Tool}" />
+                    <TextBlock Grid.Row="1" Classes="key" Text="Position" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Position}" />
+                    <TextBlock Grid.Row="2" Classes="key" Text="Pressure" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding Pressure}" />
+                    <TextBlock Grid.Row="3" Classes="key" Text="Tilt" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding Tilt}" />
+                </Grid>
+            </Border>
+
+            <TextBlock Classes="heading" Text="ABOUT" Margin="0,6,0,0" />
+            <Border Classes="card">
+                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <TextBlock Classes="key" Text="Version" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding Version}" />
+                    <TextBlock Grid.Row="1" Classes="key" Text="Built" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Built}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
