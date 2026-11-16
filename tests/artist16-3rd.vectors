@@ -1,0 +1,45 @@
+# name | raw report from the tablet (hex) | what the driver must hand on
+#
+# Raw layout: 02 kind xl xm yl ym pl ph tx ty xh yh 00 pb   (see the driver's header comment)
+# Expectations: "pad" and "pen" are decoded with the descriptor the driver installs;
+# "same" means the report passes through untouched.
+
+# Keys and dials. The four dial reports are recordings from an Artist 16 3rd
+# (OpenTabletDriver issue 4894); the rest are built from the layout.
+dial1-up-recorded      | 02f0000000000001000000000000 | pad keys= wheel=1 pan=0
+dial1-down-recorded    | 02f0000000000002000000000000 | pad keys= wheel=-1 pan=0
+dial2-up-recorded      | 02f0000000000004000000000000 | pad keys= wheel=0 pan=1
+dial2-down-recorded    | 02f0000000000008000000000000 | pad keys= wheel=0 pan=-1
+keys-released          | 02f0000000000000000000000000 | pad keys= wheel=0 pan=0
+key1                   | 02f0010000000000000000000000 | pad keys=1 wheel=0 pan=0
+key8                   | 02f0800000000000000000000000 | pad keys=8 wheel=0 pan=0
+key1-and-key3          | 02f0050000000000000000000000 | pad keys=1,3 wheel=0 pan=0
+all-keys               | 02f0ff0000000000000000000000 | pad keys=1,2,3,4,5,6,7,8 wheel=0 pan=0
+key2-while-dial1-up    | 02f0020000000001000000000000 | pad keys=2 wheel=1 pan=0
+both-dials-up          | 02f0000000000005000000000000 | pad keys= wheel=1 pan=1
+both-dials-down        | 02f000000000000a000000000000 | pad keys= wheel=-1 pan=-1
+dial1-up-dial2-down    | 02f0000000000009000000000000 | pad keys= wheel=1 pan=-1
+noise-in-placeholders  | 02f00100ffffff00000000000000 | pad keys=1 wheel=0 pan=0
+
+# Pen.
+pen-hover-origin       | 02a0000000000000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=0 y=0 p=0 tx=0 ty=0
+pen-far-corner-full    | 02a1670ad795ff1fc43c01000001 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=68199 y=38359 p=16383 tx=-60 ty=60
+pen-x-65535            | 02a1ffff0000ff1f000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=65535 y=0 p=8191 tx=0 ty=0
+pen-x-65536            | 02a1000001000000000001000001 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=65536 y=1 p=8192 tx=0 ty=0
+pen-y-high-byte        | 02a00000d7950000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=0 y=38359 p=0 tx=0 ty=0
+pen-pressure-masked    | 02a10000000034f2000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=0 y=0 p=4660 tx=0 ty=0
+pen-lower-button       | 02a2102700100000000000000000 | pen in=1 tip=0 b1=1 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+pen-upper-button       | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=1 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+pen-both-buttons-down  | 02a7102700100010000000000000 | pen in=1 tip=1 b1=1 b2=1 inv=0 era=0 x=10000 y=4096 p=4096 tx=0 ty=0
+pen-tilt               | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=20 ty=-20
+eraser-hover           | 02a8102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+eraser-down            | 02a9102700100008000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=1 era=1 x=10000 y=4096 p=2048 tx=0 ty=0
+pen-gone               | 02c0670ad7950000000001000000 | pen in=0 tip=0 b1=0 b2=0 inv=0 era=0 x=68199 y=38359 p=0 tx=0 ty=0
+
+# Status reports and reports of other kinds are not input and must not be touched.
+status-f2              | 02f2010000000000000000000000 | same
+status-f6-stylus-id    | 02f6aabbccdd0000000000000000 | same
+status-b4              | 02b4010001000000000000000000 | same
+status-f8              | 02f8000000000000000000000000 | same
+other-report-id-7      | 07a1670ad795ff1fc43c01000001 | same
+other-report-id-6      | 0601160000000000              | same

@@ -1,0 +1,8 @@
+# The udev-hid-bpf headers the driver is built against: commit, then sha256 and name of each file.
+commit bbaad639d4b2efe2a909e8b7c594b91e87704ab8
+b213d0e58cf7bdce529befe50c3a96fc9b5c2ce5131d91079edb4129a5f1fc1c  hid_bpf.h
+e01282653e04030386b489330f99df53144f9767047f96a719b0c75492033a1a  hid_bpf_helpers.h
+be5f652223ac14bd3583d8dd7501f33939c1aa0c3439c693d7a89a567283f706  hid_report_descriptor_helpers.h
+277b958faf545277cc2c13ed7ceb78b37ba1592f6e1b7a88734ea5c5a4c8a268  hid_report_helpers.h
+05b390228d3405215754346b54d3222aec461edeff91ace183d591e4e74c7fc3  uhid-bpf-test-wrappers.h
+bf6d89cdc79e76abcb0f01181e9f0d46d802a2fd2da000153bb3d5220faa6e71  vmlinux.h
