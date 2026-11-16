@@ -1,0 +1,6 @@
+# Plans, notes and third-party reference material stay local.
+/local-notes/
+
+# Dev build output.
+/bin/
+/build/
