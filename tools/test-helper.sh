@@ -49,11 +49,12 @@ check() {
 run() { PATH="$work/bin:$PATH" XPERIENCE_ROOT="$fake" "$helper" "$@"; }
 rules="$fake/etc/udev/rules.d/70-xperience.rules"
 
-run install "$work/$name" button off toggle 36
+run install "$work/$name" button off toggle 36 4
 check "the driver object is installed" '[ -f "$fake/etc/udev-hid-bpf/$name" ]'
 check "the rules carry the upper button choice" 'grep -q "ENV{XPERIENCE_PEN_UPPER_BUTTON}=\"button\"" "$rules"'
 check "the rules carry the lower button choice" 'grep -q "ENV{XPERIENCE_PEN_LOWER_BUTTON}=\"toggle\"" "$rules"'
 check "the rules carry the switch keys" 'grep -q "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"36\"" "$rules"'
+check "the rules carry the smoothing" 'grep -q "ENV{XPERIENCE_PEN_SMOOTHING}=\"4\"" "$rules"'
 check "the rules carry the tilt choice" 'grep -q "ENV{XPERIENCE_PEN_TILT}=\"off\"" "$rules"'
 check "the tablet nodes are opened to the person at the seat" 'grep -q "ATTRS{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
 check "the tablet's USB node is opened to the person at the seat" 'grep -q "SUBSYSTEM==\"usb\".*ATTR{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
@@ -61,12 +62,12 @@ check "and looked at again, the tablet's maker only" 'grep -qx "udevadm trigger 
 check "the virtual keyboard is opened to the person at the seat" 'grep -q "KERNEL==\"uinput\".*TAG+=\"uaccess\"" "$rules"'
 check "udev is told to read its rules again" 'grep -qx "udevadm control --reload" "$work/calls"'
 check "the driver is loaded for each of the tablet's interfaces with the options" \
-	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 .*097E" "$work/calls")" = 2 ]'
+	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 --property XPERIENCE_PEN_SMOOTHING=4 .*097E" "$work/calls")" = 2 ]'
 check "another device is left alone" '! grep -q "046D" "$work/calls"'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
 
-run install "$work/$name" eraser on button none
+run install "$work/$name" eraser on button none 1
 check "installing again rewrites the options" 'grep -q "UPPER_BUTTON}=\"eraser\"" "$rules" && grep -q "LOWER_BUTTON}=\"button\"" "$rules" && grep -q "PEN_TILT}=\"on\"" "$rules" && ! grep -q "=\"toggle\"" "$rules" && grep -q "SWITCH_KEYS}=\"\"" "$rules"'
 
 : > "$work/calls"
@@ -90,14 +91,16 @@ refused() {
 		failures=$((failures + 1))
 	fi
 }
-refused "an upper button that is neither" install "$work/$name" both on button none
-refused "a lower button that is neither" install "$work/$name" eraser on both none
-refused "a tilt that is neither" install "$work/$name" eraser maybe button none
+refused "an upper button that is neither" install "$work/$name" both on button none 1
+refused "a lower button that is neither" install "$work/$name" eraser on both none 1
+refused "a tilt that is neither" install "$work/$name" eraser maybe button none 1
 : > "$work/other.bpf.o"
-refused "an object that is not the driver" install "$work/other.bpf.o" eraser on button none
-refused "a missing object" install "$work/missing/$name" eraser on button none
-refused "switch keys that are not keys" install "$work/$name" eraser on button 39
-refused "an old call without the switch keys" install "$work/$name" eraser on button
+refused "an object that is not the driver" install "$work/other.bpf.o" eraser on button none 1
+refused "a missing object" install "$work/missing/$name" eraser on button none 1
+refused "switch keys that are not keys" install "$work/$name" eraser on button 39 1
+refused "an old call without the smoothing" install "$work/$name" eraser on button none
+refused "a smoothing that is none" install "$work/$name" eraser on button none 0
+refused "a smoothing too wide" install "$work/$name" eraser on button none 9
 refused "too few arguments" install "$work/$name"
 refused "an unknown verb" purge
 refused "no verb"
@@ -115,7 +118,7 @@ bare() { PATH="$work/bin:$work/tools" XPERIENCE_ROOT="$fake" "$helper" "$@"; }
 # No package manager it knows: it stops with the exit code that says the loader is missing, and says which package.
 : > "$work/calls"
 set +e
-said=$(bare install "$work/$name" eraser on button none 2>&1)
+said=$(bare install "$work/$name" eraser on button none 1 2>&1)
 code=$?
 set -e
 check "a missing loader with no known package manager is exit code 3" '[ "$code" = 3 ]'
@@ -134,7 +137,7 @@ chmod +x "$work/bin/udev-hid-bpf"
 STUB
 chmod +x "$work/bin/pacman"
 : > "$work/calls"
-bare install "$work/$name" eraser on button none
+bare install "$work/$name" eraser on button none 1
 check "a missing loader is installed with the package manager" 'grep -qx "pacman -S --needed --noconfirm udev-hid-bpf" "$work/calls"'
 check "and the driver is then handed to it" 'grep -q "^udev-hid-bpf install --force" "$work/calls"'
 check "in that order" '[ "$(grep -n "^pacman" "$work/calls" | cut -d: -f1)" -lt "$(grep -n "^udev-hid-bpf install" "$work/calls" | cut -d: -f1)" ]'
@@ -144,7 +147,7 @@ rm "$work/bin/udev-hid-bpf" "$rules"
 printf '#!/bin/sh\necho "error: failed retrieving file" >&2\nexit 1\n' > "$work/bin/pacman"
 : > "$work/calls"
 set +e
-said=$(bare install "$work/$name" eraser on button none 2>&1)
+said=$(bare install "$work/$name" eraser on button none 1 2>&1)
 code=$?
 set -e
 check "a package manager that fails is exit code 3" '[ "$code" = 3 ]'

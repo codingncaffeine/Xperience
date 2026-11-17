@@ -2,9 +2,10 @@
 # Installs or removes the Xperience tablet driver. It changes system files, so it runs as root; the settings
 # window starts it through the system's own prompt for administrator rights.
 #
-#   xperience-driver-helper install /path/to/0010-XPPen__Artist16_3rd.bpf.o UPPER TILT LOWER KEYS
+#   xperience-driver-helper install /path/to/0010-XPPen__Artist16_3rd.bpf.o UPPER TILT LOWER KEYS SMOOTHING
 #       UPPER and LOWER: what that pen button is, one of button, eraser, toggle.  TILT: on or off.
 #       KEYS: the tablet keys that switch between pen and eraser, as digits 1 to 8, or none.
+#       SMOOTHING: how many of the pen's positions are averaged, 1 (none) to 8.
 #   xperience-driver-helper remove
 #
 # install: brings udev-hid-bpf from the distribution when it is missing, hands the driver to it, writes the udev rules that carry the pen's options and let the
@@ -83,17 +84,19 @@ command -v udevadm > /dev/null 2>&1 || fail "udevadm is not installed." 3
 
 case "${1:-}" in
 install)
-	[ "$#" -eq 6 ] || fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none" 2
+	[ "$#" -eq 7 ] || fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none 1-8" 2
 	object="$2"
 	upper="$3"
 	tilt="$4"
 	lower="$5"
 	keys="$6"
+	smoothing="$7"
 	[ -f "$object" ] || fail "$object is not a file." 2
 	[ "$(basename "$object")" = "$name" ] || fail "$object is not the Xperience driver." 2
 	case "$upper" in button|eraser|toggle) ;; *) fail "The upper button is button, eraser or toggle, not $upper." 2 ;; esac
 	case "$lower" in button|eraser|toggle) ;; *) fail "The lower button is button, eraser or toggle, not $lower." 2 ;; esac
 	case "$tilt" in on|off) ;; *) fail "Tilt is on or off, not $tilt." 2 ;; esac
+	case "$smoothing" in [1-8]) ;; *) fail "Smoothing is 1 to 8, not $smoothing." 2 ;; esac
 	case "$keys" in
 	none) keys="" ;;
 	*[!1-8]* | "" | ?????????*) fail "The switch keys are digits 1 to 8, or none, not $keys." 2 ;;
@@ -118,7 +121,7 @@ KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinpu
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28bd", ATTR{idProduct}=="097e", TAG+="uaccess"
 
 # What the driver is loaded with.
-SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys"
+SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys", ENV{XPERIENCE_PEN_SMOOTHING}="$smoothing"
 RULES
 	mv "$rules.new" "$rules"
 	reload_rules
@@ -126,7 +129,7 @@ RULES
 	for device in $(devices); do
 		udev-hid-bpf add --replace \
 			--property "XPERIENCE_PEN_UPPER_BUTTON=$upper" --property "XPERIENCE_PEN_LOWER_BUTTON=$lower" \
-			--property "XPERIENCE_PEN_TILT=$tilt" --property "XPERIENCE_PEN_SWITCH_KEYS=$keys" \
+			--property "XPERIENCE_PEN_TILT=$tilt" --property "XPERIENCE_PEN_SWITCH_KEYS=$keys" --property "XPERIENCE_PEN_SMOOTHING=$smoothing" \
 			"$device" "$object"
 	done
 	;;
@@ -151,6 +154,6 @@ remove)
 	reload_rules
 	;;
 *)
-	fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none | remove" 2
+	fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none 1-8 | remove" 2
 	;;
 esac
