@@ -64,6 +64,10 @@ public sealed partial class PenView : UserControl
         var speed = this.FindControl<Slider>("Speed")!;
         speed.AddHandler(PointerReleasedEvent, (_, _) => _ = (DataContext as PenViewModel)?.ApplySpeedAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
         speed.AddHandler(KeyUpEvent, (_, _) => _ = (DataContext as PenViewModel)?.ApplySpeedAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        // Smoothing reloads the driver, so it too is applied once, when its slider is let go.
+        var smoothing = this.FindControl<Slider>("Smoothing")!;
+        smoothing.AddHandler(PointerReleasedEvent, (_, _) => _ = (DataContext as PenViewModel)?.ApplySmoothingAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        smoothing.AddHandler(KeyUpEvent, (_, _) => _ = (DataContext as PenViewModel)?.ApplySmoothingAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     void OnClear(object? sender, RoutedEventArgs e) => this.FindControl<ScribbleArea>("Scribble")!.Clear();

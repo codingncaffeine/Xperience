@@ -26,6 +26,12 @@ public sealed record DriverOptions(PenButtonRole Upper, PenButtonRole Lower, boo
     /// <summary>The tablet's keys that switch between pen and eraser: its own numbers, 1 to 8, as digits; empty for none.</summary>
     public string SwitchKeys { get; init; } = "";
 
+    /// <summary>The widest smoothing the driver has.</summary>
+    public const int MostSmoothing = 8;
+
+    /// <summary>How many of the pen's latest positions are averaged into the one handed on; 1 is none.</summary>
+    public int Smoothing { get; init; } = 1;
+
     /// <summary>Digits 1 to 8, each once, in rising order: what the driver and its helper take for the switch keys.</summary>
     public static string Keys(string? text) => string.Concat((text ?? "").Where(c => c is >= '1' and <= '8').Distinct().Order());
 
@@ -108,6 +114,8 @@ public sealed class DriverSetup
                 Property(rules, "XPERIENCE_PEN_TILT") == "off")
             {
                 SwitchKeys = DriverOptions.Keys(Property(rules, "XPERIENCE_PEN_SWITCH_KEYS")),
+                Smoothing = int.TryParse(Property(rules, "XPERIENCE_PEN_SMOOTHING"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int smoothing)
+                    ? Math.Clamp(smoothing, 1, DriverOptions.MostSmoothing) : 1,
             };
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -137,7 +145,8 @@ public sealed class DriverSetup
         if (!status.CanInstall)
             return (false, "This build does not carry the driver.");
         return Outcome(await _elevate([_helperPath, "install", _objectPath, DriverOptions.Word(options.Upper), options.TiltOff ? "off" : "on", DriverOptions.Word(options.Lower),
-            DriverOptions.Keys(options.SwitchKeys) is { Length: > 0 } keys ? keys : "none"]).ConfigureAwait(false));
+            DriverOptions.Keys(options.SwitchKeys) is { Length: > 0 } keys ? keys : "none",
+            Math.Clamp(options.Smoothing, 1, DriverOptions.MostSmoothing).ToString(System.Globalization.CultureInfo.InvariantCulture)]).ConfigureAwait(false));
     }
 
     /// <summary>Unloads the driver and takes its files away again. Asks for administrator rights.</summary>

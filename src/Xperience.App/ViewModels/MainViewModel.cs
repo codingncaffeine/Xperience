@@ -282,7 +282,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         [
             $"tablet   {presence.Mode}, pen node {presence.PenNode ?? "none"}, keys node {presence.PadNode ?? "none"}, firmware {Firmware ?? "not read"}{(presence.VendorAppRunning ? ", the XPPen app is running" : "")}",
             $"driver   {(status.Installed ? "installed" : "not installed")}, loader {(status.LoaderInstalled ? "present" : "missing")}, upper button {DriverOptions.Word(status.Options.Upper)}, "
-                + $"lower button {DriverOptions.Word(status.Options.Lower)}, tilt {(status.Options.TiltOff ? "off" : "on")}",
+                + $"lower button {DriverOptions.Word(status.Options.Lower)}, tilt {(status.Options.TiltOff ? "off" : "on")}, "
+                + $"switch keys {(status.Options.SwitchKeys.Length > 0 ? status.Options.SwitchKeys : "none")}, smoothing {status.Options.Smoothing}",
             "screens  " + (snapshot.Screens.Count == 0 ? "none" : string.Join("; ", snapshot.Screens.Select(s => string.Create(culture,
                 $"{s.Number} {s.Name} {s.Bounds.Width:0}x{s.Bounds.Height:0} at {s.Bounds.X:0},{s.Bounds.Y:0} turned {(int)s.Rotation} scale {s.Scale:0.##}")))),
             pen == null ? "desktop  no pen listed" : string.Create(culture,

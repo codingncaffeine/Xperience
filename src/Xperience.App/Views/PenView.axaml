@@ -85,6 +85,14 @@
                         <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding LowerRole}" HorizontalAlignment="Stretch"
                                   ToolTip.Tip="A button can be given any action. Eraser while held turns the pen into its eraser for as long as the button is down. Pen/Eraser switch changes over at each press. Changing this reloads the driver, which asks for administrator rights; the pen is away for a moment." />
                     </StackPanel>
+                    <StackPanel Spacing="2" Margin="0,0,0,8" IsEnabled="{Binding CanSetDriverOptions}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="muted" FontSize="12.5" Text="Smoothing" />
+                            <TextBlock Grid.Column="1" FontSize="12.5" Text="{Binding SmoothingText}" />
+                        </Grid>
+                        <Slider x:Name="Smoothing" Minimum="1" Maximum="8" Value="{Binding Smoothing}" TickFrequency="1" IsSnapToTickEnabled="True"
+                                ToolTip.Tip="Averages the pen's latest positions, which takes the tremble out of slow lines; the line then trails the pen a little. Changing this reloads the driver, which asks for administrator rights." />
+                    </StackPanel>
                     <CheckBox Content="Mouse mode" IsChecked="{Binding MouseMode}"
                               ToolTip.Tip="The pen moves the pointer from where it is, like a mouse, and the pointer stays put when the pen lifts" />
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="28,0,0,0" IsEnabled="{Binding MouseMode}" IsVisible="{Binding CanSetMouseSpeed}">

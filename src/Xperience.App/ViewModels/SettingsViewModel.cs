@@ -209,7 +209,7 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             var before = main.Snapshot.Pen;
             var driver = main.Driver;
             var (ok, problem) = await Task.Run(() => driver.InstallAsync(options));
-            main.Log.Write("driver", $"install with upper button {DriverOptions.Word(options.Upper)}, lower button {DriverOptions.Word(options.Lower)}, tilt {(options.TiltOff ? "off" : "on")}, switch keys {(options.SwitchKeys.Length > 0 ? options.SwitchKeys : "none")}: {(ok ? "done" : "failed: " + problem)}");
+            main.Log.Write("driver", $"install with upper button {DriverOptions.Word(options.Upper)}, lower button {DriverOptions.Word(options.Lower)}, tilt {(options.TiltOff ? "off" : "on")}, switch keys {(options.SwitchKeys.Length > 0 ? options.SwitchKeys : "none")}, smoothing {options.Smoothing}: {(ok ? "done" : "failed: " + problem)}");
             await AfterDriverChangeAsync(ok, problem, before);
         }
         finally

@@ -446,7 +446,7 @@ public class EditingTests
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
 
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none 1"], bench.Elevated);
         var pen = await bench.PenAsync();
         Assert.Equal("XPPen Artist 16 3rd Stylus", pen.Name);
         Assert.Equal((before.TargetKind, before.TargetScreen, before.Flipped, before.ScreenArea), (pen.TargetKind, pen.TargetScreen, pen.Flipped, pen.ScreenArea));
@@ -490,7 +490,7 @@ public class EditingTests
 
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none 1"], bench.Elevated);
         Assert.Null(main.Problem);
 
         // When the helper cannot bring it, what it said is shown.
@@ -559,11 +559,11 @@ public class EditingTests
 
         main.Pen.TiltOn = false;
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off button none"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off button none 1"], bench.Elevated);
 
         main.Pen.UpperRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
         await main.Pending;
-        Assert.Equal($"install {DriverSetup.ObjectName} button on button none", bench.Elevated[^1]);
+        Assert.Equal($"install {DriverSetup.ObjectName} button on button none 1", bench.Elevated[^1]);
     });
 
     [Fact]
@@ -588,7 +588,7 @@ public class EditingTests
 
         main.Pen.LowerRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} toggle on button none"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} toggle on button none 1"], bench.Elevated);
     });
 
     [Fact]
@@ -610,7 +610,7 @@ public class EditingTests
         // The third key from the top. The driver is told, since only it can change the pen's tool.
         await main.Home.EditKey(2);
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button 3"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button 3 1"], bench.Elevated);
         Assert.Equal("Disabled", bench.Desktop.Binding(Rebind.Keys, "2"));
         Assert.Equal("Pen/Eraser", main.Home.KeyLabels[2]);
 
@@ -618,7 +618,7 @@ public class EditingTests
         // around, the third key as held is the tablet's own sixth, and that is what the driver is told then.
         main.WorkArea.SelectedTurn = main.WorkArea.Turns.Single(t => t.Turn == TabletTurn.Half);
         await main.Pending;
-        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button 6", bench.Elevated[^1]);
+        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button 6 1", bench.Elevated[^1]);
 
         // With the rules saying so already, nothing is reloaded.
         File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"), "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"6\"\n");
@@ -631,7 +631,7 @@ public class EditingTests
         bench.Dialogs.Action = _ => PadAction.Shortcut("Alt");
         await main.Home.EditKey(5);
         await main.Pending;
-        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button none", bench.Elevated[^1]);
+        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button none 1", bench.Elevated[^1]);
     });
 
     [Fact]
@@ -759,6 +759,38 @@ public class EditingTests
         await main.Home.ToggleLabels();
         Assert.True(main.Home.LabelsShown);
         Assert.False(bench.Store.LoadState().LabelsHidden);
+    });
+
+    [Fact]
+    public Task Smoothing_reloads_the_driver_once_when_the_slider_is_let_go() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync(Bench.Driven);
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev/rules.d"));
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf"));
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"), "ENV{XPERIENCE_PEN_SMOOTHING}=\"3\"\n");
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf", DriverSetup.ObjectName), "");
+        var main = bench.Main;
+        await main.RefreshAsync();
+        Assert.Equal((3.0, "3 positions"), (main.Pen.Smoothing, main.Pen.SmoothingText));
+
+        // Dragging reloads nothing; letting go does, once, and letting go where it already is does not.
+        main.Pen.Smoothing = 5;
+        main.Pen.Smoothing = 6;
+        Assert.Empty(bench.Elevated);
+        await main.Pen.ApplySmoothingAsync();
+        await main.Pending;
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none 6"], bench.Elevated);
+
+        main.Pen.Smoothing = 3;
+        await main.Pen.ApplySmoothingAsync();
+        await main.Pending;
+        Assert.Single(bench.Elevated);
+
+        main.Pen.Smoothing = 1;
+        Assert.Equal("Off", main.Pen.SmoothingText);
+        await main.Pen.ApplySmoothingAsync();
+        await main.Pending;
+        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button none 1", bench.Elevated[^1]);
     });
 
     [Fact]

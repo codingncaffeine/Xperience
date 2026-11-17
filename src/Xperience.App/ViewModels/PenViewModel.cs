@@ -41,6 +41,7 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
     [ObservableProperty] private bool _canSetMouseSpeed;
     [ObservableProperty] private bool _pressureOn = true;
     [ObservableProperty] private bool _tiltOn = true;
+    [ObservableProperty] private double _smoothing = 1;
     [ObservableProperty] private RoleChoice _upperRole = RoleChoices[1];
     [ObservableProperty] private RoleChoice _lowerRole = RoleChoices[0];
     [ObservableProperty] private bool _canSetDriverOptions;
@@ -87,6 +88,7 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
             bool driven = main.Presence.Mode == DriveMode.Driver;
             // Without the driver the tablet has the buttons as it comes: the upper one erases, the lower one is a button.
             var options = driven ? driver.Options : DriverOptions.Default;
+            Smoothing = options.Smoothing;
             UpperRole = RoleChoices.First(c => c.Role == options.Upper);
             LowerRole = RoleChoices.First(c => c.Role == options.Lower);
             TiltOn = !(driven && driver.Options.TiltOff);
@@ -190,6 +192,19 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
     {
         if (!_loading)
             _ = SetDriverOptionsAsync(main.DriverStatus.Options with { TiltOff = !value });
+    }
+
+    public string SmoothingText => Smoothing <= 1 ? "Off" : string.Create(System.Globalization.CultureInfo.CurrentCulture, $"{Smoothing:0} positions");
+
+    partial void OnSmoothingChanged(double value) => OnPropertyChanged(nameof(SmoothingText));
+
+    /// <summary>Reloads the driver with the smoothing as it stands. Called when the slider is let go, not for every step.</summary>
+    public Task ApplySmoothingAsync()
+    {
+        int wanted = (int)Math.Clamp(Math.Round(Smoothing), 1, DriverOptions.MostSmoothing);
+        if (_loading || !CanSetDriverOptions || wanted == main.DriverStatus.Options.Smoothing)
+            return Task.CompletedTask;
+        return SetDriverOptionsAsync(main.DriverStatus.Options with { Smoothing = wanted });
     }
 
     partial void OnUpperRoleChanged(RoleChoice value)

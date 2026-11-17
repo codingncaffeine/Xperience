@@ -16,7 +16,8 @@ passes its offline tests; it has not been run on a tablet yet, and neither has a
   surface, each picked by dragging, by clicking its two corners or by numbers; a proportion button that keeps
   circles round; rotation in quarter turns; calibration by tapping five crosses.
 - **Pen**: pressure curve with presets, a live reading and a patch to try it on; pressure and tilt on or off;
-  mouse mode and its speed; what each pen button does, including eraser while held and a pen/eraser switch.
+  smoothing; mouse mode and its speed; what each pen button does, including eraser while held and a
+  pen/eraser switch.
 - **Keys and dials**: every key takes a shortcut (one held, or several typed in a row), two shortcuts taking
   turns, a mouse action, a program to start, or a special action such as precision mode or switching monitor.
   Each dial has four functions that a key steps through. They start out as the maker assigns them, in the
@@ -44,7 +45,7 @@ shows up as:
 
 - a pen with 16383 pressure levels and tilt, its lower button a button and its upper button an eraser, as
   out of the box; either button can be set to be a button, an eraser while held, or a pen/eraser switch,
-  and so can any of the tablet's keys
+  and so can any of the tablet's keys; its positions can be smoothed
 - a pad with 8 keys and 2 dials
 
 The settings window installs and removes it (Settings, Driver); that asks for administrator rights and needs
