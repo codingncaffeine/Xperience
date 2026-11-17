@@ -21,6 +21,13 @@ extern unsigned char pad_keys_held;
 extern unsigned char pen_buttons_held;
 extern unsigned char pen_switched_to_eraser;
 extern char UDEV_PROP_XPERIENCE_PEN_TILT[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_PROBE[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_X_MAX[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_Y_MAX[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_PRESSURE_MAX[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_RESOLUTION[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_KEYS[16];
+extern char UDEV_PROP_XPERIENCE_TABLET_DIALS[16];
 
 static struct hid_device device;
 static struct hid_bpf_ctx context;
@@ -65,15 +72,18 @@ static void use(unsigned char *data, unsigned long capacity, int size)
 }
 
 /* Returns probe's verdict; *output and *output_length describe the report it wrote, if any. */
-int run_probe(unsigned int rdesc_size, const unsigned char **output, int *output_length)
+int run_probe(const unsigned char *rdesc, unsigned int rdesc_size, const unsigned char **output, int *output_length)
 {
 	static struct hid_bpf_probe_args args;
+	unsigned int i;
 
 	sent_length = -1;
 	use((unsigned char *)0, 0, 0);
 	__builtin_memset(&args, 0, sizeof(args));
 	args.hid = 1;
 	args.rdesc_size = rdesc_size;
+	for (i = 0; i < rdesc_size && i < sizeof(args.rdesc); i++)
+		args.rdesc[i] = rdesc[i];
 	args.retval = -1;
 	probe(&args);
 	*output = sent;
@@ -138,6 +148,34 @@ void forget_pen_state(void)
 	pad_keys_held = 0;
 	pen_buttons_held = 0;
 	pen_switched_to_eraser = 0;
+}
+
+/* What the tablet said it is, by the property's name less XPERIENCE_TABLET_; returns 0 for an unknown name. */
+int set_tablet(const char *name, const char *value)
+{
+	static const struct {
+		const char *name;
+		char *property;
+	} known[] = {
+		{ "PROBE", UDEV_PROP_XPERIENCE_TABLET_PROBE },
+		{ "X_MAX", UDEV_PROP_XPERIENCE_TABLET_X_MAX },
+		{ "Y_MAX", UDEV_PROP_XPERIENCE_TABLET_Y_MAX },
+		{ "PRESSURE_MAX", UDEV_PROP_XPERIENCE_TABLET_PRESSURE_MAX },
+		{ "RESOLUTION", UDEV_PROP_XPERIENCE_TABLET_RESOLUTION },
+		{ "KEYS", UDEV_PROP_XPERIENCE_TABLET_KEYS },
+		{ "DIALS", UDEV_PROP_XPERIENCE_TABLET_DIALS },
+	};
+	unsigned int i, j;
+
+	for (i = 0; i < sizeof(known) / sizeof(known[0]); i++) {
+		for (j = 0; known[i].name[j] && known[i].name[j] == name[j]; j++)
+			;
+		if (!known[i].name[j] && !name[j]) {
+			set_property(known[i].property, 16, value);
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void set_pen_tilt(const char *value)

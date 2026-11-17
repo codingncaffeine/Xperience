@@ -44,7 +44,7 @@ headers=$("$root/tools/fetch-headers.sh")
 quiet="-fms-extensions -Wno-microsoft-anon-tag -Wno-unknown-attributes"
 # shellcheck disable=SC2086
 nice -n 10 clang -std=gnu11 -O1 -g $quiet -Wno-unknown-pragmas -Wno-attributes -DUDEV_HID_BPF_TEST_SUITE \
-	-I "$headers" -c "$root/driver/$name.bpf.c" -o "$build/test-driver.o"
+	-I "$headers" -I "$root/build/gen" -c "$root/driver/$name.bpf.c" -o "$build/test-driver.o"
 # shellcheck disable=SC2086
 nice -n 10 clang -std=gnu11 -O1 -g $quiet -Wall -Wno-unused-parameter -Werror \
 	-I "$headers" -c "$tests/kernel_side.c" -o "$build/test-kernel-side.o"
@@ -61,3 +61,8 @@ fixtures="$tests/fixtures/artist16-3rd"
 	"$tests/artist16-3rd.vectors" > "$build/harness.out"
 "$build/venv/bin/python" "$tests/check_driver.py" "$build/harness.out" "$tests/artist16-3rd.vectors" \
 	"$fixtures-if2.rdesc.hex"
+
+# The same program on tablets of other shapes: what each one answered decides its descriptor.
+"$build/driver-harness" "$fixtures-if0.rdesc.hex" "$fixtures-if1.rdesc.hex" "$fixtures-if2.rdesc.hex" \
+	"$tests/shapes.vectors" > "$build/harness-shapes.out"
+"$build/venv/bin/python" "$tests/check_shapes.py" "$build/harness-shapes.out" "$tests/shapes.vectors"

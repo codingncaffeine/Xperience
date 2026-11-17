@@ -7,7 +7,7 @@
 # the guest's own record is in build/rig/out.
 #   tools/rig/run.sh
 # For planted faults, RIG_HELPER, RIG_DRIVER and RIG_PROBE name a changed copy of the helper, of the driver's
-# source or of the probe's source.
+# source or of the probe's source, and RIG_STOP_AT the failed line the run may end at.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -39,12 +39,14 @@ available_mb=$(awk '/MemAvailable/ { print int($2 / 1024) }' /proc/meminfo)
 
 rm -rf "$rig"
 mkdir -p "$rig/initramfs/modules" "$out"
+# A planted fault's run ends at the line it must fail on (tools/rig/controls.sh).
+[ -n "${RIG_STOP_AT:-}" ] && printf '%s\n' "$RIG_STOP_AT" > "$out/stop-at"
 gcc -O2 -Wall -Wextra -Werror -pthread "$root/tools/rig/fake-tablet.c" -o "$rig/fake-tablet"
 gcc -O2 -Wall -Wextra -Werror -static "$root/tools/rig/rig-init.c" -o "$rig/initramfs/init"
 "$root/tools/build-driver.sh" "$rig" "${RIG_DRIVER:-$root/driver/0010-XPPen__Artist16_3rd.bpf.c}" > /dev/null
 cp "${RIG_HELPER:-$root/tools/xperience-driver-helper}" "$rig/xperience-driver-helper"
 if [ -n "${RIG_PROBE:-}" ]; then
-	gcc -O2 -Wall -Wextra -Werror -static "$RIG_PROBE" -o "$rig/xperience-probe"
+	gcc -O2 -Wall -Wextra -Werror -static -I "$root/build/gen" "$RIG_PROBE" -o "$rig/xperience-probe"
 fi
 
 for module in netfs 9pnet 9pnet_virtio 9p overlay; do

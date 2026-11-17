@@ -51,11 +51,11 @@ open(copy, "w").write(text.replace(old, new))
 	fi
 	chmod +x "$copy"
 	if [ "$target" = driver ]; then
-		RIG_DRIVER="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
+		RIG_STOP_AT="$want" RIG_DRIVER="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
 	elif [ "$target" = probe ]; then
-		RIG_PROBE="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
+		RIG_STOP_AT="$want" RIG_PROBE="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
 	else
-		RIG_HELPER="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
+		RIG_STOP_AT="$want" RIG_HELPER="$copy" "$root/tools/rig/run.sh" > "$work/$name.txt" 2>&1
 	fi
 	status=$?
 	cp "$root/build/rig/out/record.txt" "$work/$name/record.txt" 2> /dev/null
@@ -67,13 +67,21 @@ open(copy, "w").write(text.replace(old, new))
 	fi
 }
 
-# The loader refused the object on the user's desk on 2026-11-17: a copy the compiler made into a call.
-plant outlined-copy driver '__builtin_memcpy_inline(data + rdesc_size' '__builtin_memcpy(data + rdesc_size' \
+# The loader refused the object on the user's desk on 2026-11-17: a copy the compiler made into a call. A copy
+# of more than 128 bytes is made one.
+plant outlined-copy driver $'hid_set_name(hctx->hid, "Disabled by HID-BPF Xperience");' \
+	$'hid_set_name(hctx->hid, "Disabled by HID-BPF Xperience");\n\t\t__builtin_memcpy(data + 1024, data + 2048, 200);' \
 	'FAIL install: the helper succeeded'
-plant pressure-bit-13 driver 'pressure_high |= 0x20;' 'pressure_high |= 0x00;' \
+plant pressure-bit-13 driver 'pressure_high |= (whole[13] & 0x07) << 5;' 'pressure_high |= 0;' \
 	'FAIL pen-far-corner-full: hidraw'
-plant plain-interfaces-alive driver $'__builtin_memcpy_inline(data, disabled_rdesc, sizeof(disabled_rdesc));\n\treturn sizeof(disabled_rdesc);' \
+plant plain-interfaces-alive driver $'__builtin_memcpy_inline(data, disabled_rdesc, sizeof(disabled_rdesc));\n\t\treturn sizeof(disabled_rdesc);' \
 	'(void)disabled_rdesc; return 0;' "FAIL install: only the driver's pen and keypad are left"
+# A tablet of 10-byte reports given a 12-byte pen report: the USB transfers never end (found by the rig).
+plant short-tablet-long-pen driver 'PUT(raw_length >= 12 ? 24 : 16);' 'PUT(raw_length ? 24 : 24);' \
+	'FAIL star03-corner'
+# A tablet that did not say what it is must be left as it comes.
+plant odd-tablet-driven driver $'if (!tablet_described() || ctx->rdesc_size > sizeof(ctx->rdesc)) {' \
+	$'if (ctx->rdesc_size > sizeof(ctx->rdesc)) {' 'FAIL odd tablet no-answer: never asked for raw mode'
 # The pen went dead on the user's desk on 2026-11-17: another program had left the vendor interface unbound.
 plant interface-not-given-back helper 'basename "$interface" > "$root/sys/bus/usb/drivers/usbhid/bind"' 'true' \
 	'FAIL unbound: the helper succeeded'

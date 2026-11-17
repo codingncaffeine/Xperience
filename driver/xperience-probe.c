@@ -4,6 +4,7 @@
  * appears, before the driver is loaded, and keeps what it prints as properties of that device:
  *
  *   xperience-probe /sys/PATH/OF/THE/HID/DEVICE
+ *   xperience-probe --models      prints the product ids the driver takes, as the kernel names them (097E)
  *
  *   XPERIENCE_TABLET_X_MAX=68199          the pen's range, in the tablet's own units
  *   XPERIENCE_TABLET_Y_MAX=38359
@@ -11,13 +12,16 @@
  *   XPERIENCE_TABLET_RESOLUTION=5080      units per inch
  *   XPERIENCE_TABLET_KEYS=8               keys on the frame
  *   XPERIENCE_TABLET_FRAME=2              what else the frame has, as the tablet numbers it
+ *   XPERIENCE_TABLET_DIALS=2              dials on the frame, from models.tsv (a tablet does not say)
+ *   XPERIENCE_TABLET_SCREEN=1             1 for a pen display, from models.tsv
  *   XPERIENCE_TABLET_PROBE=ok             or the reason nothing else was printed
  *
  * The answer is the tablet's USB string descriptor 100, read with the standard request, as the maker's own
  * app does before it switches the tablet to raw mode and as the kernel's hid-uclogic does after. Layout,
  * counting the descriptor's length byte as byte 0: X bytes 2,3 (bits 16..23 in byte 12), Y bytes 4,5 (bits
  * 16..23 in byte 13), keys byte 6, frame byte 7, pressure bytes 8,9, resolution bytes 10,11 (0 means 5080).
- * An answer that makes no sense prints no sizes, and the driver then leaves the tablet in the mode it comes in.
+ * An answer that makes no sense, or a product not in models.tsv, prints no sizes, and the driver then leaves
+ * the tablet in the mode it comes in.
  */
 #include <dirent.h>
 #include <errno.h>
@@ -29,6 +33,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "xperience-models.h"
+
 #define REQUEST_TIMEOUT_MS 500
 
 static int reason(const char *why)
@@ -37,14 +43,14 @@ static int reason(const char *why)
 	return 0;
 }
 
-static int read_number(const char *folder, const char *name, unsigned *value)
+static int read_number(const char *folder, const char *name, unsigned *value, int base)
 {
 	char path[4096];
 	snprintf(path, sizeof(path), "%s/%s", folder, name);
 	FILE *file = fopen(path, "r");
 	if (!file)
 		return -1;
-	int got = fscanf(file, "%u", value);
+	int got = fscanf(file, base == 16 ? "%x" : "%u", value);
 	fclose(file);
 	return got == 1 ? 0 : -1;
 }
@@ -65,6 +71,11 @@ static int string_descriptor(int fd, unsigned index, unsigned language, unsigned
 
 int main(int argc, char **argv)
 {
+	if (argc == 2 && !strcmp(argv[1], "--models")) {
+		for (size_t i = 0; i < sizeof(xperience_models) / sizeof(xperience_models[0]); i++)
+			printf("%04X\n", xperience_models[i].product);
+		return 0;
+	}
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s /sys/PATH/OF/THE/HID/DEVICE\n", argv[0]);
 		return 2;
@@ -77,13 +88,23 @@ int main(int argc, char **argv)
 		return reason("no-device");
 	unsigned bus = 0, device = 0;
 	for (;;) {
-		if (read_number(folder, "busnum", &bus) == 0 && read_number(folder, "devnum", &device) == 0)
+		if (read_number(folder, "busnum", &bus, 10) == 0 && read_number(folder, "devnum", &device, 10) == 0)
 			break;
 		char *slash = strrchr(folder, '/');
 		if (!slash || slash == folder)
 			return reason("no-usb-device");
 		*slash = 0;
 	}
+
+	// Only the models in the list: the driver takes no other, and the list has what a tablet cannot say.
+	unsigned product = 0;
+	const struct xperience_model *model = NULL;
+	read_number(folder, "idProduct", &product, 16);
+	for (size_t i = 0; i < sizeof(xperience_models) / sizeof(xperience_models[0]); i++)
+		if (xperience_models[i].product == product)
+			model = &xperience_models[i];
+	if (!model)
+		return reason("not-supported");
 
 	char node[64];
 	snprintf(node, sizeof(node), "/dev/bus/usb/%03u/%03u", bus, device);
@@ -126,5 +147,7 @@ int main(int argc, char **argv)
 	printf("XPERIENCE_TABLET_RESOLUTION=%u\n", resolution);
 	printf("XPERIENCE_TABLET_KEYS=%u\n", keys);
 	printf("XPERIENCE_TABLET_FRAME=%u\n", frame);
+	printf("XPERIENCE_TABLET_DIALS=%u\n", model->dials);
+	printf("XPERIENCE_TABLET_SCREEN=%u\n", model->screen);
 	return reason("ok");
 }

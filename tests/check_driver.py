@@ -69,12 +69,20 @@ def judge(output, vectors, original_vendor):
     """Returns a list of faults; empty means the driver's output is right."""
     faults = []
     probes = {int(l[1]): (int(l[2]), l[3]) for l in output if l[0] == "probe"}
+
+    # A tablet that did not say what it is is declined on every interface, and nothing is changed.
+    undescribed = [(int(l[1]), int(l[2]), l[3]) for l in output if l[0] == "probe-undescribed"]
+    if sorted(undescribed) != [(36, -22, "-"), (113, -22, "-"), (177, -22, "-")]:
+        faults.append(f"probe without the tablet's answer: got {undescribed}")
+    unchanged = [int(l[2]) for l in output if l[0] == "rdesc-undescribed"]
+    if unchanged != [0]:
+        faults.append(f"rdesc without the tablet's answer: changed ({unchanged})")
     descriptors = {int(l[1]): (int(l[2]), l[3], l[4] if len(l) > 4 else "") for l in output if l[0] == "rdesc"}
     events = {l[1]: (int(l[2]), l[3]) for l in output if l[0] == "event"}
 
-    # The driver takes the tablet's three interfaces and nothing else, and asks
-    # for raw mode once, on the vendor interface.
-    wanted = {177: (0, "-"), 113: (0, "-"), 36: (0, RAW_MODE_COMMAND), 64: (-22, "-")}
+    # The driver takes the tablet's three interfaces, asks for raw mode once, on
+    # the vendor interface, and leaves a display's touch screen alone.
+    wanted = {177: (0, "-"), 113: (0, "-"), 36: (0, RAW_MODE_COMMAND), 10: (-22, "-")}
     if probes != wanted:
         faults.append(f"probe: got {probes}, want {wanted}")
 
@@ -91,6 +99,9 @@ def judge(output, vectors, original_vendor):
                     faults.append(f"rdesc {size}: still describes {field.usage_page_name}/{field.usage_name}")
 
     result, data, _ = descriptors.get(36, (0, "", ""))
+    # What the real Artist 16 3rd runs on with the driver loaded, read from it on 2026-11-17.
+    if data != open(INSTALLED).read().strip():
+        faults.append("rdesc 36: not the descriptor the real tablet has with the driver")
     if not data.startswith(original_vendor):
         faults.append("rdesc 36: the vendor descriptor is not kept at the front")
     if result * 2 != len(data) or result <= 36:
@@ -224,9 +235,10 @@ CONTROLS = [
 
 
 def main():
-    global FIXTURE_PEN
+    global FIXTURE_PEN, INSTALLED
     output_path, vectors_path, vendor_path = sys.argv[1:4]
     FIXTURE_PEN = vendor_path.replace("if2", "if1")
+    INSTALLED = vendor_path.replace("if2.rdesc", "if2.installed.rdesc")
     output = read_output(output_path)
     vectors = read_vectors(vectors_path)
     original_vendor = open(vendor_path).read().strip()

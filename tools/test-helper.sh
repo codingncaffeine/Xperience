@@ -13,6 +13,10 @@ helper="$work/bundle/xperience-driver-helper"
 cp "$root/tools/xperience-driver-helper" "$helper"
 cat > "$work/bundle/xperience-probe" <<'STUB'
 #!/bin/sh
+if [ "$1" = --models ]; then
+	printf '0902\n097E\n'
+	exit 0
+fi
 echo XPERIENCE_TABLET_X_MAX=68199
 echo XPERIENCE_TABLET_PRESSURE_MAX=16383
 echo 'XPERIENCE_TABLET_KEYS=8 --property OTHER=1'
@@ -23,7 +27,7 @@ chmod +x "$work/bundle/xperience-probe"
 name="0010-XPPen__Artist16_3rd.bpf.o"
 fake="$work/fake-root"
 mkdir -p "$work/bin" "$fake/sys/bus/hid/devices/0003:28BD:097E.0007" "$fake/sys/bus/hid/devices/0003:28BD:097E.0009" \
-	"$fake/sys/bus/hid/devices/0003:046D:C52B.0001"
+	"$fake/sys/bus/hid/devices/0003:046D:C52B.0001" "$fake/sys/bus/hid/devices/0003:28BD:0929.000A"
 : > "$work/$name"
 : > "$work/calls"
 # The tablet's first and third interfaces, each with its raw node, and another maker's device with one too.
@@ -32,6 +36,13 @@ mkdir -p "$fake/dev" "$fake/sys/bus/hid/devices/0003:28BD:097E.0007/hidraw/hidra
 echo "HID_PHYS=usb-0000:0b:00.3-2/input0" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0007/uevent"
 echo "HID_PHYS=usb-0000:0b:00.3-2/input2" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0009/uevent"
 echo "HID_PHYS=usb-0000:0b:00.3-1/input2" > "$fake/sys/bus/hid/devices/0003:046D:C52B.0001/uevent"
+# The descriptors: the tablet's vendor interface is the one of 36 bytes of the vendor page ff0a, as the driver
+# finds it. A Deco Mini 4 of the same maker, which a driver of the loader's own drives, is plugged in too.
+xxd -r -p "$root/tests/fixtures/artist16-3rd-if2.rdesc.hex" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0009/report_descriptor"
+xxd -r -p "$root/tests/fixtures/artist16-3rd-if0.rdesc.hex" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0007/report_descriptor"
+cp "$fake/sys/bus/hid/devices/0003:28BD:097E.0009/report_descriptor" "$fake/sys/bus/hid/devices/0003:28BD:0929.000A/"
+echo "HID_PHYS=usb-0000:0b:00.3-3/input2" > "$fake/sys/bus/hid/devices/0003:28BD:0929.000A/uevent"
+mkdir -p "$fake/sys/bus/hid/devices/0003:28BD:0929.000A/hidraw/hidraw9"
 # The tablet as the kernel lists it on USB: three HID interfaces, the third one held by no driver, the way the
 # maker's own program leaves it. And a mouse of another maker, with an interface held by nothing too.
 usb="$fake/sys/bus/usb/devices"
@@ -40,7 +51,7 @@ echo 28bd > "$usb/1-2/idVendor"; echo 097e > "$usb/1-2/idProduct"
 echo 046d > "$usb/3-1/idVendor"; echo c52b > "$usb/3-1/idProduct"
 for interface in "$usb/1-2/1-2:1.0" "$usb/1-2/1-2:1.1" "$usb/1-2/1-2:1.2" "$usb/3-1/3-1:1.0"; do echo 03 > "$interface/bInterfaceClass"; done
 export XPERIENCE_SETTLE_SECONDS=1
-: > "$fake/dev/hidraw1"; : > "$fake/dev/hidraw4"; : > "$fake/dev/hidraw6"
+: > "$fake/dev/hidraw1"; : > "$fake/dev/hidraw4"; : > "$fake/dev/hidraw6"; : > "$fake/dev/hidraw9"
 
 # Stand-ins: the loader copies the object and writes its rule as the real one does; both write down their arguments.
 cat > "$work/bin/udev-hid-bpf" <<STUB
@@ -98,8 +109,8 @@ check "the rules carry the lower button choice" 'grep -q "ENV{XPERIENCE_PEN_LOWE
 check "the rules carry the switch keys" 'grep -q "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"36\"" "$rules"'
 check "the rules carry the smoothing" 'grep -q "ENV{XPERIENCE_PEN_SMOOTHING}=\"4\"" "$rules"'
 check "the rules carry the tilt choice" 'grep -q "ENV{XPERIENCE_PEN_TILT}=\"off\"" "$rules"'
-check "the tablet nodes are opened to the person at the seat" 'grep -q "ATTRS{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
-check "the tablet's USB node is opened to the person at the seat" 'grep -q "SUBSYSTEM==\"usb\".*ATTR{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
+check "the tablet nodes are opened to the person at the seat" 'grep -q "KERNEL==\"event\*\", ATTRS{idVendor}==\"28bd\", TAG+=\"uaccess\"" "$rules"'
+check "the tablet's USB node is opened to the person at the seat" 'grep -q "SUBSYSTEM==\"usb\".*ATTR{idVendor}==\"28bd\", TAG+=\"uaccess\"" "$rules"'
 check "and looked at again, the tablet's maker only" 'grep -qx "udevadm trigger --action=change --subsystem-match=usb --attr-match=idVendor=28bd" "$work/calls"'
 check "the virtual keyboard is opened to the person at the seat" 'grep -q "KERNEL==\"uinput\".*TAG+=\"uaccess\"" "$rules"'
 check "udev is told to read its rules again" 'grep -qx "udevadm control --reload" "$work/calls"'
@@ -107,15 +118,17 @@ check "the driver is loaded for each of the tablet's interfaces with the options
 	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 --property XPERIENCE_PEN_SMOOTHING=4 .*097E" "$work/calls")" = 2 ]'
 check "the interface no driver held is given back to the kernel, and only that one" '[ "$(cat "$fake/sys/bus/usb/drivers/usbhid/bind")" = "1-2:1.2" ]'
 check "another device is left alone" '! grep -q "046D" "$work/calls"'
+check "a tablet of the maker the driver does not take is left alone" '! grep -q "0929" "$work/calls"'
 check "the probe is installed where only root can change it" 'cmp -s "$fake/usr/local/libexec/xperience-probe" "$work/bundle/xperience-probe" && [ -x "$fake/usr/local/libexec/xperience-probe" ]'
 check "the rules run the installed probe when a HID device of the maker appears" \
 	'grep -qx "SUBSYSTEM==\"hid\", ACTION!=\"remove\", ATTRS{idVendor}==\"28bd\", IMPORT{program}=\"/usr/local/libexec/xperience-probe \\\$sys\\\$devpath\"" "$rules"'
 check "the driver is loaded with what the tablet said it is" \
 	'[ "$(grep -c -- "--property XPERIENCE_PEN_SMOOTHING=4 --property XPERIENCE_TABLET_X_MAX=68199 --property XPERIENCE_TABLET_PRESSURE_MAX=16383 --property XPERIENCE_TABLET_PROBE=ok .*097E" "$work/calls")" = 2 ]'
 check "a probe line of another form is not passed on" '! grep -q "OTHER=1\|TABLET_KEYS" "$work/calls"'
-check "the rules load the driver when the tablet appears, with the pen's options" \
-	'grep -q "ACTION==\"add\", ATTRS{idVendor}==\"28bd\", ATTRS{idProduct}==\"097e\", IMPORT{program}+=\"$work/bin/udev-hid-bpf add \$sys\$devpath /etc/udev-hid-bpf/$name --property XPERIENCE_PEN_UPPER_BUTTON=\$env{XPERIENCE_PEN_UPPER_BUTTON} .*--property XPERIENCE_PEN_SMOOTHING=\$env{XPERIENCE_PEN_SMOOTHING}\"" "$rules"'
-check "the loader's own rule, which knows nothing of the options, is not left in place" '[ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
+check "the rules load the driver when a tablet that answered appears, with its answer and the pen's options" \
+	'grep -q "ACTION==\"add\", ENV{XPERIENCE_TABLET_PROBE}==\"ok\", IMPORT{program}+=\"$work/bin/udev-hid-bpf add \$sys\$devpath /etc/udev-hid-bpf/$name --property XPERIENCE_TABLET_PROBE=\$env{XPERIENCE_TABLET_PROBE} .*--property XPERIENCE_TABLET_DIALS=\$env{XPERIENCE_TABLET_DIALS} .*--property XPERIENCE_PEN_SMOOTHING=\$env{XPERIENCE_PEN_SMOOTHING}\"" "$rules"'
+check "and unload it when it goes" 'grep -q "ACTION==\"remove\", ENV{XPERIENCE_TABLET_PROBE}==\"ok\", RUN{program}+=\"$work/bin/udev-hid-bpf remove \$sys\$devpath\"" "$rules"'
+check "the loader's own rule, which knows nothing of the answers, is not left in place" '[ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
 
@@ -127,7 +140,8 @@ run remove
 check "remove unloads the driver from each interface" '[ "$(grep -c "^udev-hid-bpf remove .*097E" "$work/calls")" = 2 ]'
 check "remove puts the tablet back into its own mode through its vendor interface" \
 	'[ "$(od -An -tx1 "$fake/dev/hidraw6" | tr -d " \n")" = "02b00200000000000000" ]'
-check "remove writes nothing to the tablet's other interfaces or to other devices" '[ ! -s "$fake/dev/hidraw4" ] && [ ! -s "$fake/dev/hidraw1" ]'
+check "remove writes nothing to the tablet's other interfaces or to other devices" '[ ! -s "$fake/dev/hidraw4" ] && [ ! -s "$fake/dev/hidraw1" ] && [ ! -s "$fake/dev/hidraw9" ]'
+check "remove leaves a tablet the driver does not take alone" '! grep -q "0929" "$work/calls"'
 check "the tablet is told only after the driver has let go of it" \
 	'[ "$(grep -n "udev-hid-bpf remove" "$work/calls" | tail -1 | cut -d: -f1)" -lt "$(grep -n "udevadm settle" "$work/calls" | head -1 | cut -d: -f1)" ]'
 check "remove takes the rules away" '[ ! -e "$rules" ]'
@@ -200,6 +214,17 @@ check "a tablet that does not come back as a pen is exit code 6" '[ "$code" = 6 
 check "it says the driver was taken out" 'echo "$said" | grep -q "did not come back as a pen"'
 check "and it was: no rules, no driver" '[ ! -e "$rules" ] && [ ! -e "$fake/etc/udev-hid-bpf/$name" ]'
 
+# A tablet that did not say what it is is left as it comes: nothing is loaded onto it, and installing succeeds.
+sed -i 's/^echo XPERIENCE_TABLET_PROBE=ok$/echo XPERIENCE_TABLET_PROBE=no-answer/' "$work/bundle/xperience-probe"
+: > "$work/calls"
+set +e
+run install "$work/$name" eraser on button none 1 > /dev/null 2>&1
+code=$?
+set -e
+sed -i 's/^echo XPERIENCE_TABLET_PROBE=no-answer$/echo XPERIENCE_TABLET_PROBE=ok/' "$work/bundle/xperience-probe"
+check "a tablet that did not answer gets no driver" '! grep -q "^udev-hid-bpf add" "$work/calls"'
+check "and the install still succeeds" '[ "$code" = 0 ]'
+
 # With no tablet plugged in, installing sets everything up for when one is, and checks no pen.
 mkdir -p "$work/unplugged"
 mv "$fake/sys/bus/hid/devices/0003:28BD:097E.0007" "$fake/sys/bus/hid/devices/0003:28BD:097E.0009" "$work/unplugged/"
@@ -218,7 +243,7 @@ check "and loads nothing" '! grep -q "^udev-hid-bpf add" "$work/calls"'
 # stand-in package manager to install.
 mv "$work/bin/udev-hid-bpf" "$work/loader-stand-in"
 mkdir -p "$work/tools"
-for tool in sh basename dirname mkdir cat mv rm grep mktemp tail cp chmod sleep; do
+for tool in sh basename dirname mkdir cat mv rm grep mktemp tail cp chmod sleep tr od wc; do
 	ln -sf "$(command -v "$tool")" "$work/tools/$tool"
 done
 bare() { PATH="$work/bin:$work/tools" XPERIENCE_ROOT="$fake" "$helper" "$@"; }

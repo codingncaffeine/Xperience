@@ -1,0 +1,54 @@
+# The tablets Xperience's driver takes, by USB product id (vendor 28bd). Only what a tablet cannot say about
+# itself is here: its size, pressure range and key count come from the tablet when it is plugged in.
+#   product   USB product id, hex
+#   name      what people call it (a maker's code where no sold name is known); the app shows the name the
+#             tablet itself reports
+#   keys      keys on the frame, as the maker's own software lists them (checked against the tablet's answer)
+#   dials     dials on the frame, 0 to 2
+#   screen    yes for a pen display
+#   evidence  where the figures come from
+# Left out: models the kernel or a udev-hid-bpf driver already drives, models that start in a different way, and models
+# with a trackpad, a touch ring, a touch screen or more than 16 keys.
+product	name	keys	dials	screen	evidence
+0902	Deco 01 V2	8	0	no	OpenTabletDriver
+0906	Star G640S	6	0	no	OpenTabletDriver
+0907	Star 03	8	0	no	OpenTabletDriver
+0913	Star G430S	0	0	no	OpenTabletDriver
+0914	Star G640	0	0	no	OpenTabletDriver
+0917	Star G960S	4	0	no	OpenTabletDriver
+0918	Star G960S Plus	4	0	no	OpenTabletDriver
+0920	Star G960	4	0	no	OpenTabletDriver
+0924	Star03	8	0	no	maker's list
+0926	G640S	6	0	no	maker's list
+0927	Star03	8	0	no	maker's list
+0928	Deco mini7	8	0	no	OpenTabletDriver
+0930	Deco Fun XS (CT430)	0	0	no	OpenTabletDriver
+0931	Deco Fun S (CT640)	0	0	no	OpenTabletDriver
+0932	Deco Fun L (CT1060)	0	0	no	OpenTabletDriver
+0936	Deco M	8	0	no	OpenTabletDriver
+0942	BPH1502B	0	0	no	maker's list
+0943	Deco Pro LW Gen2	0	0	no	OpenTabletDriver
+0944	Deco Pro XLW Gen2	0	0	no	OpenTabletDriver
+0948	DecoMini7V2	8	0	no	maker's list
+2904	Deco640	8	0	no	maker's list
+090d	Artist 15.6 Pro	8	1	yes	OpenTabletDriver
+091d	P22Pro	0	0	yes	maker's list
+091f	Artist 12 Pro	8	1	yes	OpenTabletDriver
+092b	Artist 13.3 Pro	8	1	yes	OpenTabletDriver
+092c	Innovator 16	8	2	yes	OpenTabletDriver
+092f	Artist 22 (2nd Gen)	0	0	yes	OpenTabletDriver
+094a	Artist 12 (2nd Gen)	8	0	yes	OpenTabletDriver
+094b	Artist 16 Pro	8	2	yes	OpenTabletDriver
+094c	Artist 16 (2nd Gen)	10	0	yes	OpenTabletDriver
+094d	Artist 10 (2nd Gen)	6	0	yes	OpenTabletDriver
+094e	Artist 13 (2nd Gen)	9	0	yes	OpenTabletDriver
+095c	ArtistPro24	0	0	yes	maker's list
+095d	EDN1616U-A	0	0	yes	maker's list
+095f	Artist2215	0	0	yes	maker's list
+096b	LDN2215Q-A	0	0	yes	maker's list
+096e	LDN1302F-A	8	1	yes	maker's list
+096f	LDN1302F-A	8	1	yes	maker's list
+097b	CDM1205W-A	0	0	yes	maker's list
+097c	CDA1601M-A	0	0	yes	maker's list
+097e	Artist 16 (3rd Gen)	8	2	yes	self-report read
+098a	EDH1417Q-A	2	0	yes	maker's list

@@ -31,19 +31,44 @@ fail() {
 	exit "${2:-1}"
 }
 
-devices() {
-	for device in "$root"/sys/bus/hid/devices/0003:28BD:097E.*; do
-		[ -e "$device" ] && echo "$device"
+# The product ids the driver takes, as the kernel names them (097E). The probe carries the same list the driver
+# was built with: the one beside this helper, or the installed one.
+products() {
+	for candidate in "$(dirname "$0")/xperience-probe" "$probe"; do
+		if [ -x "$candidate" ]; then
+			"$candidate" --models
+			return 0
+		fi
 	done
 	return 0
 }
 
+# The HID devices of every plugged-in tablet the driver takes.
+devices() {
+	list=" $(products | tr '\n' ' ') "
+	for device in "$root"/sys/bus/hid/devices/0003:28BD:*; do
+		[ -e "$device" ] || continue
+		id=${device##*/}
+		id=${id#0003:28BD:}
+		id=${id%%.*}
+		case "$list" in *" $id "*) echo "$device" ;; esac
+	done
+	return 0
+}
+
+# A tablet's vendor interface, by what its descriptor says (36 bytes of the vendor page ff0a), as the driver
+# finds it.
+is_vendor_interface() {
+	[ "$(wc -c < "$1/report_descriptor" 2> /dev/null)" = 36 ] &&
+		[ "$(od -An -tx1 -N3 "$1/report_descriptor" 2> /dev/null | tr -d ' \n')" = 060aff ]
+}
+
 # The driver switches the tablet to its raw mode, and the tablet stays there until it is told otherwise or
 # unplugged. Without the driver nothing reads raw reports, so the tablet is put back into the mode it comes in:
-# the three bytes 02 b0 02, padded to ten, on its vendor interface (the third of its three).
+# the three bytes 02 b0 02, padded to ten, on its vendor interface.
 leave_raw_mode() {
 	for device in $(devices); do
-		grep -q '^HID_PHYS=.*/input2$' "$device/uevent" 2> /dev/null || continue
+		is_vendor_interface "$device" || continue
 		for raw in "$device"/hidraw/hidraw*; do
 			[ -e "$raw" ] || continue
 			node="$root/dev/$(basename "$raw")"
@@ -58,9 +83,11 @@ leave_raw_mode() {
 # pen and no keys to hand on. Every interface of the tablet that no kernel driver holds is given back to the
 # kernel's own HID driver, which is what unplugging the tablet and plugging it back in would do.
 give_back_interfaces() {
+	list=" $(products | tr '\n' ' ') "
 	for usb in "$root"/sys/bus/usb/devices/*; do
 		[ "$(cat "$usb/idVendor" 2> /dev/null)" = 28bd ] || continue
-		[ "$(cat "$usb/idProduct" 2> /dev/null)" = 097e ] || continue
+		id=$(tr 'a-f' 'A-F' < "$usb/idProduct" 2> /dev/null)
+		case "$list" in *" $id "*) ;; *) continue ;; esac
 		for interface in "$usb"/*:*; do
 			[ "$(cat "$interface/bInterfaceClass" 2> /dev/null)" = 03 ] || continue
 			[ -e "$interface/driver" ] && continue
@@ -76,8 +103,10 @@ give_back_interfaces() {
 pen_is_back() {
 	left=${XPERIENCE_SETTLE_SECONDS:-6}
 	while :; do
-		for input in "$root"/sys/bus/hid/devices/0003:28BD:097E.*/input/input*; do
-			[ -e "$input" ] && return 0
+		for device in $(devices); do
+			for input in "$device"/input/input*; do
+				[ -e "$input" ] && return 0
+			done
 		done
 		[ "$left" -gt 0 ] || return 1
 		left=$((left - 1))
@@ -191,13 +220,14 @@ install)
 	chmod 755 "$probe.new"
 	mv "$probe.new" "$probe"
 
-	# The rule the loader wrote loads the driver without the pen's options (see the rules below); ours does it.
+	# The rule the loader wrote loads the driver without the tablet's answers (see the rules below); ours does it.
 	rm -f "$root"/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd*.rules
 	loader=$(command -v udev-hid-bpf)
 	sys_path='$sys$devpath'
 	properties=""
-	for property in XPERIENCE_PEN_UPPER_BUTTON XPERIENCE_PEN_LOWER_BUTTON XPERIENCE_PEN_TILT XPERIENCE_PEN_SWITCH_KEYS \
-		XPERIENCE_PEN_SMOOTHING; do
+	for property in XPERIENCE_TABLET_PROBE XPERIENCE_TABLET_X_MAX XPERIENCE_TABLET_Y_MAX XPERIENCE_TABLET_PRESSURE_MAX \
+		XPERIENCE_TABLET_RESOLUTION XPERIENCE_TABLET_KEYS XPERIENCE_TABLET_DIALS XPERIENCE_PEN_UPPER_BUTTON \
+		XPERIENCE_PEN_LOWER_BUTTON XPERIENCE_PEN_TILT XPERIENCE_PEN_SWITCH_KEYS XPERIENCE_PEN_SMOOTHING; do
 		properties="$properties --property $property=\$env{$property}"
 	done
 
@@ -213,21 +243,21 @@ SUBSYSTEM=="hid", ACTION!="remove", ATTRS{idVendor}=="28bd", IMPORT{program}="$p
 
 # The person at the seat may read the tablet's keys, dials and pen, and create the virtual keyboard
 # Xperience types shortcuts with.
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="28bd", TAG+="uaccess"
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
 
 # The person at the seat may ask the tablet for its firmware version, which it keeps among its USB descriptors.
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28bd", ATTR{idProduct}=="097e", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28bd", TAG+="uaccess"
 
 # What the driver is loaded with.
-SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys", ENV{XPERIENCE_PEN_SMOOTHING}="$smoothing"
+SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys", ENV{XPERIENCE_PEN_SMOOTHING}="$smoothing"
 
-# The driver is loaded when the tablet appears. The loader reads a device's udev record, which the "add" event
-# has not written yet, so the pen's options are handed to it here.
-SUBSYSTEM=="hid", ACTION=="add", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", IMPORT{program}+="$loader add $sys_path /etc/udev-hid-bpf/$name$properties"
-SUBSYSTEM=="hid", ACTION=="remove", ENV{MODALIAS}=="hid:b0003g0001v000028BDp0000097E", RUN{program}+="$loader remove $sys_path"
+# The driver is loaded when a tablet it takes appears. The loader reads a device's udev record, which the "add"
+# event has not written yet, so what the tablet said it is and the pen's options are handed to it here.
+SUBSYSTEM=="hid", ACTION=="add", ENV{XPERIENCE_TABLET_PROBE}=="ok", IMPORT{program}+="$loader add $sys_path /etc/udev-hid-bpf/$name$properties"
+SUBSYSTEM=="hid", ACTION=="remove", ENV{XPERIENCE_TABLET_PROBE}=="ok", RUN{program}+="$loader remove $sys_path"
 # Binding the device again clears what the loader set on it; it is read back from what is loaded.
-SUBSYSTEM=="hid", ACTION=="bind|unbind", ENV{MODALIAS}=="hid:b0003g0001v000028BDp0000097E", IMPORT{program}+="$loader list-loaded --format udev --syspath $sys_path"
+SUBSYSTEM=="hid", ACTION=="bind|unbind", ENV{XPERIENCE_TABLET_PROBE}=="ok", IMPORT{program}+="$loader list-loaded --format udev --syspath $sys_path"
 RULES
 	mv "$rules.new" "$rules"
 	reload_rules
@@ -235,6 +265,8 @@ RULES
 
 	loaded=0
 	for device in $(devices); do
+		# A tablet that did not say what it is stays as it comes, as the rules leave it.
+		"$probe" "$device" 2> /dev/null | grep -qx 'XPERIENCE_TABLET_PROBE=ok' || continue
 		loaded=1
 		if ! load "$device" > "$log" 2>&1; then
 			# The kernel checks every such program before running it and says why it turns one down. A

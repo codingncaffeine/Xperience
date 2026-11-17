@@ -22,6 +22,7 @@ import time
 REPO, OUT = sys.argv[1:3]
 sys.path.insert(0, os.path.join(REPO, "tests"))
 import check_driver  # noqa: E402
+import check_shapes  # noqa: E402
 import hidtools.hid as hid  # noqa: E402
 
 FIXTURES = os.path.join(REPO, "tests", "fixtures", "artist16-3rd")
@@ -34,7 +35,8 @@ PROBE = os.path.join(REPO, "build", "rig", "xperience-probe")
 # What the Artist 16 3rd says it is (its string 100, read from the real tablet on 2026-11-17).
 SELF_DESCRIPTION = {"XPERIENCE_TABLET_X_MAX": "68199", "XPERIENCE_TABLET_Y_MAX": "38359",
                     "XPERIENCE_TABLET_PRESSURE_MAX": "16383", "XPERIENCE_TABLET_RESOLUTION": "5080",
-                    "XPERIENCE_TABLET_KEYS": "8", "XPERIENCE_TABLET_FRAME": "2", "XPERIENCE_TABLET_PROBE": "ok"}
+                    "XPERIENCE_TABLET_KEYS": "8", "XPERIENCE_TABLET_FRAME": "2", "XPERIENCE_TABLET_DIALS": "2",
+                    "XPERIENCE_TABLET_SCREEN": "1", "XPERIENCE_TABLET_PROBE": "ok"}
 
 # What the real tablet showed with the driver in charge (session record, 2026-11-17).
 PEN_NAME, PAD_NAME = "XPPen Artist 16 3rd Stylus", "XPPen Artist 16 3rd Keypad"
@@ -50,6 +52,12 @@ DEFAULTS = {"upper-button": "eraser", "lower-button": "button", "tilt": "on", "s
 
 record = open(os.path.join(OUT, "record.txt"), "w")
 results = []
+# For planted faults: the run ends at the first failed check that contains this text (tools/rig/controls.sh).
+STOP_AT = (open(os.path.join(OUT, "stop-at")).read().strip() if os.path.exists(os.path.join(OUT, "stop-at")) else "")
+
+
+class Stopped(Exception):
+    pass
 
 
 def note(text):
@@ -60,6 +68,8 @@ def note(text):
 def check(ok, what):
     results.append((bool(ok), what))
     note(("PASS " if ok else "FAIL ") + what)
+    if not ok and STOP_AT and STOP_AT in "FAIL " + what:
+        raise Stopped()
     return ok
 
 
@@ -80,11 +90,14 @@ def settle():
 class Tablet:
     """The stand-in tablet process and what it said."""
 
-    def __init__(self, string_100=None):
+    def __init__(self, string_100=None, product=None, name=None, length=None):
         rdescs = [f"{FIXTURES}-if{i}.rdesc.hex" for i in range(3)]
         env = dict(os.environ)
         if string_100:
             env["FAKE_STRING_100"] = string_100
+        for key, value in (("FAKE_PRODUCT", product), ("FAKE_NAME", name), ("FAKE_REPORT_LENGTH", length)):
+            if value:
+                env[key] = value
         self.process = subprocess.Popen([FAKE, *rdescs], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
         self.lines = []
@@ -142,10 +155,10 @@ def read(path, mode="r"):
         return None
 
 
-def hid_devices():
+def hid_devices(product="097E"):
     """{interface number: sysfs folder} of the tablet's HID devices."""
     found = {}
-    for device in glob.glob("/sys/bus/hid/devices/0003:28BD:097E.*"):
+    for device in glob.glob(f"/sys/bus/hid/devices/0003:28BD:{product}.*"):
         uevent = read(os.path.join(device, "uevent"))
         for line in (uevent or "").splitlines():
             if line.startswith("HID_PHYS=") and line[-7:-1] == "/input":
@@ -451,12 +464,124 @@ def main():
         for number, device in sorted(hid_devices().items()):
             got = tablet_properties(device)
             check(got == {"XPERIENCE_TABLET_PROBE": why}, f"odd tablet {why}: interface {number} has only the reason" + ("" if got == {"XPERIENCE_TABLET_PROBE": why} else f" (got {got})"))
+        # The driver declines a tablet that did not say what it is: it stays as it comes out of the box.
+        # The driver's own guard, not only the rules': loaded by hand with what this tablet answered.
+        for device in hid_devices().values():
+            run("udev-hid-bpf", "add", "--property", f"XPERIENCE_TABLET_PROBE={why}", device,
+                "/etc/udev-hid-bpf/0010-XPPen__Artist16_3rd.bpf.o")
+        settle()
+        time.sleep(1)
+        check(not tablet.said("raw on"), f"odd tablet {why}: never asked for raw mode")
+        check(plain_inputs_alive(), f"odd tablet {why}: its own input devices are left working")
         tablet.unplug()
     check(run(HELPER, "remove") == 0, "odd tablets: removed again")
+
+    # 8. Tablets of other shapes (tests/shapes.vectors), each plugged in as a stand-in of its own with the
+    #    driver installed: the rules load it by what the tablet answers, and its reports go through the kernel.
+    check(install({}) == 0, "shapes: driver installed")
+    for label, answer, stand_in, vectors in shapes():
+        play_shape(label, answer, stand_in, vectors)
+    check(run(HELPER, "remove") == 0, "shapes: removed again")
+
+
+def shapes():
+    """[(label, @tablet answer, @stand-in, vectors)] from tests/shapes.vectors."""
+    found, answer, stand_in = [], {}, {}
+    for line in open(os.path.join(REPO, "tests", "shapes.vectors")):
+        line = line.strip()
+        if line.startswith("@tablet "):
+            answer = dict(word.split("=") for word in line.split()[1:])
+        elif line.startswith("@stand-in "):
+            stand_in = dict(word.split("=") for word in line.split()[1:])
+        elif line.startswith("@describe "):
+            found.append((line.split()[1], dict(answer), stand_in, []))
+        elif line and not line.startswith("#") and "|" in line:
+            name, raw, expect = (part.strip() for part in line.split("|"))
+            found[-1][3].append((name, raw.lower(), expect.split()))
+    return found
+
+
+def string_100(answer):
+    """The string descriptor 100 a tablet with this answer sends."""
+    x, y = int(answer["X_MAX"]), int(answer["Y_MAX"])
+    p, r = int(answer["PRESSURE_MAX"]), int(answer["RESOLUTION"])
+    data = [0x0E, 0x03, x & 0xFF, x >> 8 & 0xFF, y & 0xFF, y >> 8 & 0xFF, int(answer["KEYS"]), int(answer["DIALS"]),
+            p & 0xFF, p >> 8, r & 0xFF, r >> 8, x >> 16, y >> 16]
+    return bytes(data).hex()
+
+
+def play_shape(label, answer, stand_in, vectors):
+    product, name = stand_in["PRODUCT"], stand_in["NAME"].replace("_", " ")
+    keys, dials = int(answer["KEYS"]), int(answer["DIALS"])
+    # The kernel names input devices after the maker's and the product's USB strings.
+    pen_name, pad_name = f"XPPen {name} Stylus", f"XPPen {name} Keypad"
+    check(wait(lambda: not glob.glob("/sys/bus/hid/devices/0003:28BD:*"), 10), f"{label}: the last tablet is gone")
+    tablet = Tablet(string_100(answer), product, name, stand_in["LENGTH"])
+    try:
+        check(wait(lambda: tablet.said("ready"), 15), f"{label}: configured")
+        check(wait(lambda: tablet.said("raw on"), 10), f"{label}: the driver switched it to raw mode by itself")
+        settle()
+
+        def driven():
+            for device in hid_devices(product).values():
+                if pen_name in inputs(device):
+                    return device
+            return None
+        vendor = wait(driven, 10)
+        if not check(vendor, f"{label}: the driver's pen {pen_name!r} is there"):
+            for device in hid_devices(product).values():
+                note(f"{label}: {os.path.basename(device)} inputs {sorted(inputs(device))}")
+            return
+        nodes = inputs(vendor)
+        check((pad_name in nodes) == bool(keys or dials), f"{label}: a pad only where there are keys or dials ({sorted(nodes)})")
+        descriptor = hid.ReportDescriptor.from_bytes(read(os.path.join(vendor, "report_descriptor"), "rb"))
+        raw = os.open(hidraw(vendor), os.O_RDONLY | os.O_NONBLOCK)
+        pen = os.open(nodes[pen_name], os.O_RDONLY | os.O_NONBLOCK)
+        pad = os.open(nodes[pad_name], os.O_RDONLY | os.O_NONBLOCK) if pad_name in nodes else None
+        ranges = {code: absinfo(pen, code)[1:3] for code in (ABS_X, ABS_Y, ABS_PRESSURE)}
+        want = {ABS_X: (0, int(answer["X_MAX"])), ABS_Y: (0, int(answer["Y_MAX"])), ABS_PRESSURE: (0, int(answer["PRESSURE_MAX"]))}
+        check(ranges == want, f"{label}: pen ranges {ranges}")
+        for vector, data, expect in vectors:
+            for fd in (raw, pen, pad):
+                if fd is not None:
+                    drain(fd)
+            tablet.send(data)
+            if not select.select([raw], [], [], 2)[0]:
+                check(False, f"{vector}: nothing reached hidraw")
+                continue
+            report = os.read(raw, 64)
+            time.sleep(0.02)
+            kind, wanted = expect[0], dict(item.split("=") for item in expect[1:])
+            got = check_shapes.decode(descriptor, report)
+            if kind == "pad":
+                want_keys = [int(k) for k in wanted["keys"].split(",") if k]
+                check(got["keys"] == want_keys, f"{vector}: hidraw keys {got['keys']}, want {want_keys}")
+                rel = drain(pad)
+                codes = {BTN_0 + k - 1 if k <= 10 else 0x130 + k - 11 for k in want_keys}
+                pressed = {c for c in keys_down(pad) if BTN_0 <= c < 0x140}
+                check(pressed == codes, f"{vector}: evdev pad keys {sorted(map(hex, pressed))}, want {sorted(map(hex, codes))}")
+                for code, word in ((REL_WHEEL, "wheel"), (REL_HWHEEL, "pan")):
+                    if word in wanted:
+                        moved = sum(v for t, c, v in rel if t == EV_REL and c == code)
+                        check(moved == int(wanted[word]), f"{vector}: evdev {word} {moved}, want {wanted[word]}")
+            else:
+                for field, word in (("X", "x"), ("Y", "y"), ("Tip Pressure", "p"), ("X Tilt", "tx"), ("Y Tilt", "ty")):
+                    check(got.get(field) == int(wanted[word]), f"{vector}: hidraw {field} {got.get(field)}, want {wanted[word]}")
+                if wanted["in"] == "1":
+                    for code, word in ((ABS_X, "x"), (ABS_Y, "y"), (ABS_PRESSURE, "p")):
+                        value = absinfo(pen, code)[0]
+                        check(value == int(wanted[word]), f"{vector}: evdev {word} {value}, want {wanted[word]}")
+        for fd in (raw, pen, pad):
+            if fd is not None:
+                os.close(fd)
+    finally:
+        tablet.unplug()
 
 
 try:
     main()
+except Stopped:
+    note("stopped at the planted fault's line")
 except Exception as error:  # the run itself broke: that is a failed verdict, with the reason
     import traceback
     note(traceback.format_exc())

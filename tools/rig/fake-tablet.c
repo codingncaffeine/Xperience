@@ -6,7 +6,9 @@
  *
  *   fake-tablet IF0.rdesc.hex IF1.rdesc.hex IF2.rdesc.hex
  *   With FAKE_STRING_100=none in its environment the tablet does not answer string 100; with
- *   FAKE_STRING_100=HEX it answers with those bytes instead (length and type included).
+ *   FAKE_STRING_100=HEX it answers with those bytes instead (length and type included). Another model:
+ *   FAKE_PRODUCT=HEX (the USB product id), FAKE_NAME=TEXT (the product string), FAKE_REPORT_LENGTH=10|12|14
+ *   (its raw reports, id included; the vendor descriptor and endpoints follow it).
  *   It reads commands from standard input, one per line:
  *       send HEX         the tablet sends this report on its vendor interface (dropped outside raw mode)
  *       quit
@@ -35,10 +37,10 @@
 #define HID_DT_REPORT_TYPE 0x22
 
 // Read from the real tablet: /sys/bus/usb/devices/1-2/descriptors on 2026-11-17 (full speed, USB 1.1).
-static const uint8_t device_descriptor[] = {
+static uint8_t device_descriptor[] = {
 	0x12, 0x01, 0x10, 0x01, 0x00, 0x00, 0x00, 0x40, 0xbd, 0x28, 0x7e, 0x09, 0x00, 0x00, 0x01, 0x02, 0x03, 0x01,
 };
-static const uint8_t config_descriptor[] = {
+static uint8_t config_descriptor[] = {
 	0x09, 0x02, 0x5b, 0x00, 0x03, 0x01, 0x00, 0xa0, 0x23,
 	// Interface 0: boot mouse, 177-byte report descriptor, EP 0x81 IN 8 bytes.
 	0x09, 0x04, 0x00, 0x00, 0x01, 0x03, 0x01, 0x02, 0x00,
@@ -62,7 +64,7 @@ static size_t report_descriptor_sizes[3];
 static uint8_t string_100[255] = { 0x0e, 0x03, 0x67, 0x0a, 0xd7, 0x95, 0x08, 0x02, 0xff, 0x3f, 0xd8, 0x13, 0x01, 0x00 };
 static size_t string_100_size = 14;
 static const uint8_t string_110[] = { 0x09, 0x03, 0x00, 0x30, 0x00, 0x11, 0x08, 0x02, 0x00 };
-static const char *const strings[] = {
+static const char *strings[] = {
 	[1] = "XPPen", [2] = "Artist 16 3rd", [3] = "00000",
 	[4] = "UG903_LDN1516F-A", [5] = "2026-01-05_Release001",
 };
@@ -289,7 +291,8 @@ static void *read_commands(void *unused)
 		pthread_mutex_unlock(&lock);
 		struct io io = { 0 };
 		io.io.ep = handle;
-		io.io.length = 14;
+		// One packet: the host sends a command at the vendor report's length, a single full-size packet.
+		io.io.length = config_descriptor[88];
 		int got = ioctl(fd, USB_RAW_IOCTL_EP_READ, &io);
 		if (got < 0) {
 			// The endpoint goes away when the host configures the tablet again; wait for the new one.
@@ -380,6 +383,25 @@ int main(int argc, char **argv)
 				break;
 			string_100[string_100_size++] = byte;
 		}
+	}
+
+	const char *product = getenv("FAKE_PRODUCT"), *name = getenv("FAKE_NAME"), *length = getenv("FAKE_REPORT_LENGTH");
+	if (product) {
+		unsigned id = strtoul(product, NULL, 16);
+		device_descriptor[10] = id & 0xff;
+		device_descriptor[11] = id >> 8;
+	}
+	if (name)
+		strings[2] = name;
+	if (length) {
+		// The vendor descriptor's two report counts (input and output) and the two endpoints' packet size.
+		unsigned bytes = strtoul(length, NULL, 10);
+		uint8_t *vendor = report_descriptors[2];
+		for (size_t i = 0; i + 1 < report_descriptor_sizes[2]; i++)
+			if (vendor[i] == 0x95 && vendor[i + 1] == 0x0d)
+				vendor[i + 1] = bytes - 1;
+		config_descriptor[81] = bytes;
+		config_descriptor[88] = bytes;
 	}
 
 	fd = open("/dev/raw-gadget", O_RDWR);

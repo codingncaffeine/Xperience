@@ -1,0 +1,66 @@
+# Tablets of other shapes than the Artist 16 3rd, for tests/check_shapes.py. Same lines as artist16-3rd.vectors:
+#   name | raw report from the tablet (hex) | what the driver must hand on
+# "@tablet" sets what the tablet answered (xperience-probe's properties, DIALS from models.tsv) and
+# "@describe" has the driver build its descriptor for it, which the checker parses and holds to the answer.
+# "@stand-in" is for tools/rig: the product id, USB name (_ for a space) and raw report length its virtual
+# tablet of that shape has; the rig plays the same reports through the kernel.
+# Sizes come from OpenTabletDriver's configurations; how reports are read comes from the maker's own parser
+# and OpenTabletDriver's (see the notes beside each).
+
+# Star G640 (0914): pen only, 14-byte reports. No pad at all.
+@tablet PROBE=ok X_MAX=32000 Y_MAX=20000 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=0 DIALS=0
+@stand-in PRODUCT=0914 NAME=Star_G640 LENGTH=14
+@describe star-g640
+g640-corner            | 02a1007d204eff1f000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=32000 y=20000 p=8191 tx=0 ty=0
+
+# Star 03 (0907): 10-byte reports, so no bytes 10 and up: position in 16 bits, pressure in 13.
+@tablet PROBE=ok X_MAX=50800 Y_MAX=30480 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=8 DIALS=0
+@stand-in PRODUCT=0907 NAME=Star_03 LENGTH=10
+@describe star-03
+star03-corner          | 02a170c61077ff1f0000         | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=50800 y=30480 p=8191 tx=0 ty=0
+star03-lower-button    | 02a2102700100000f60a         | pen in=1 tip=0 b1=1 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=-10 ty=10
+star03-key8            | 02f08000000000000000         | pad keys=8
+star03-gone            | 02c00000000000000000         | pen in=0 tip=0 b1=0 b2=0 inv=0 era=0 x=0 y=0 p=0 tx=0 ty=0
+
+# Deco M (0936): 12-byte reports; the top three bits of byte 7 carry a pen type, not pressure.
+@tablet PROBE=ok X_MAX=40640 Y_MAX=25400 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=8 DIALS=0
+@stand-in PRODUCT=0936 NAME=Deco_M LENGTH=12
+@describe deco-m
+decom-pen-type-bits    | 02a1c09e3863ffff00000000     | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=40640 y=25400 p=8191 tx=0 ty=0
+
+# Artist 16 (2nd Gen) (094c): 10 keys, the ninth and tenth in byte 3; X past 16 bits in byte 10.
+@tablet PROBE=ok X_MAX=68198 Y_MAX=38362 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=10 DIALS=0
+@stand-in PRODUCT=094C NAME=Artist_16_(2nd_Gen) LENGTH=12
+@describe artist-16-2nd
+a16g2-key9             | 02f000010000000000000000     | pad keys=9
+a16g2-key1-key10       | 02f001020000000000000000     | pad keys=1,10
+a16g2-far-corner       | 02a1660ada95ff1f00000100     | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=68198 y=38362 p=8191 tx=0 ty=0
+
+# Artist 12 Pro (091f): one dial, 01 / 02 (the maker's parser; OpenTabletDriver checked it on an Artist
+# 13.3 Pro). Codes of a second dial are not handed on as a dial it does not have.
+@tablet PROBE=ok X_MAX=25634 Y_MAX=14415 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=8 DIALS=1
+@stand-in PRODUCT=091F NAME=Artist_12_Pro LENGTH=12
+@describe artist-12-pro
+a12p-dial-up           | 02f000000000000100000000     | pad keys= wheel=1
+a12p-dial-down         | 02f000000000000200000000     | pad keys= wheel=-1
+a12p-dial-down-ff      | 02f00000000000ff00000000     | pad keys= wheel=-1
+a12p-key3              | 02f004000000000000000000     | pad keys=3 wheel=0
+
+# Innovator 16 (092c): two dials. The second one as 10 / 20 (OpenTabletDriver checked those on an Artist 22R
+# Pro), and as 04 / 08 like the Artist 16 3rd; touch-ring codes (40 and up) move no dial.
+@tablet PROBE=ok X_MAX=68783 Y_MAX=38709 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=8 DIALS=2
+@stand-in PRODUCT=092C NAME=Innovator_16 LENGTH=12
+@describe innovator-16
+inno-dial2-up-10       | 02f000000000001000000000     | pad keys= wheel=0 pan=1
+inno-dial2-down-20     | 02f000000000002000000000     | pad keys= wheel=0 pan=-1
+inno-dial2-up-04       | 02f000000000000400000000     | pad keys= wheel=0 pan=1
+inno-both-10-and-01    | 02f000000000001100000000     | pad keys= wheel=1 pan=1
+inno-ring-code-41      | 02f000000000004100000000     | pad keys= wheel=0 pan=0
+inno-ring-code-80      | 02f000000000008000000000     | pad keys= wheel=0 pan=0
+
+# Synthetic, for the keys past ten: 12 keys. Keys 11 and 12 are buttons 0x31 and 0x32 (BTN_A, BTN_B).
+@tablet PROBE=ok X_MAX=40000 Y_MAX=25000 PRESSURE_MAX=8191 RESOLUTION=5080 KEYS=12 DIALS=0
+@stand-in PRODUCT=0928 NAME=Twelve_Keys LENGTH=14
+@describe synthetic-12-keys
+syn12-key11            | 02f0000400000000000000000000 | pad keys=11
+syn12-key12-key2       | 02f0020800000000000000000000 | pad keys=2,12
