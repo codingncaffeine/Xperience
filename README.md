@@ -5,12 +5,20 @@
 Linux support for the XPPen Artist 16 3rd pen display: a kernel driver for its keys, dials and pen, and a
 settings app for everything the maker's own app offers.
 
-**Status: early.** The settings app runs on KDE Plasma (Wayland) and is covered by tests. The driver builds and
-passes its offline tests; it has not been run on a tablet yet, and neither has anything that depends on it.
+It runs on KDE Plasma 6 (Wayland). Nothing of the maker's own driver or software is needed.
+
+## Install
+
+- **Arch**: `xperience-bin` on the AUR.
+- **Debian / Ubuntu**: download the `.deb` from the [releases](https://github.com/codingncaffeine/Xperience/releases)
+  and `sudo apt install ./xperience_<version>_amd64.deb`.
+- **Alpine and other musl systems**: the `linux-musl-x64` bundle from the releases.
+- **Anywhere else**: unpack the `linux-x64` bundle and run `./xperience`.
+
+Then start Xperience and press Settings, Driver, **Install driver**. It asks for administrator rights once and
+brings along `udev-hid-bpf`, the system's loader for such drivers, when that is not installed yet.
 
 ## Settings app
-
-`tools/build.sh` builds everything and refreshes `bin/`; `bin/xperience` opens the settings window.
 
 - **Work area**: which monitor the pen works on (or all of them), any part of it, any part of the tablet's
   surface, each picked by dragging, by clicking its two corners or by numbers; a proportion button that keeps
@@ -48,19 +56,26 @@ shows up as:
   and so can any of the tablet's keys; its positions can be smoothed
 - a pad with 8 keys and 2 dials
 
-The settings window installs and removes it (Settings, Driver); that asks for administrator rights and needs
-the `udev-hid-bpf` package. Removing it puts the tablet back into the mode it comes in. The maker's own app
-must not be running while the driver is in charge; with Xperience there is no need to keep it installed.
-
-```
-tools/build-driver.sh    # needs clang and the libbpf headers; writes bin/0010-XPPen__Artist16_3rd.bpf.o
-tools/test.sh            # every test: the driver's, the install helper's and the app's; no root, no tablet
-```
+The settings window installs and removes it (Settings, Driver); that asks for administrator rights. Removing
+it puts the tablet back into the mode it comes in. The maker's own app must not be running while the driver is
+in charge; with Xperience there is no need to keep it installed.
 
 ## Not here yet
 
 Languages other than English, and tablets other than the Artist 16 3rd.
 
+## Building
+
+```
+tools/build.sh           # everything, into bin/; bin/xperience opens the settings window
+tools/build-driver.sh    # the driver alone; needs clang and the libbpf headers
+tools/test.sh            # every test: the driver's, the install helper's and the app's; no root, no tablet
+tools/alpine-build.sh    # the same build and tests on Alpine (musl), in a container
+```
+
 ## License
 
-Each file names its license. The driver and its tests are GPL-2.0-only (`LICENSES/GPL-2.0-only.txt`).
+Xperience is free software under the GNU General Public License, version 3 or later (`LICENSE`). The driver,
+which is loaded into the kernel, and the test programs that stand in for the kernel around it are under the
+GNU General Public License, version 2 only (`LICENSES/GPL-2.0-only.txt`); each of those files says so in its
+first line.

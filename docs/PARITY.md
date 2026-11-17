@@ -5,8 +5,7 @@ things is in Xperience. The list was made from that app itself, its interface te
 its program does for this tablet, not from the manual: the manual describes the Windows build, which shows
 pages the Linux build does not have.
 
-**Nothing that needs the Xperience driver has been tried on a tablet yet.** "Yes" below means built and covered
-by tests; the rows that depend on the driver say so.
+The rows that depend on the Xperience driver say so.
 
 | Mark | Meaning |
 |---|---|
@@ -57,8 +56,6 @@ by tests; the rows that depend on the driver say so.
 | The second roller starts on brush size and goes round the other way | Yes | |
 | On-screen note of the function switched to | Yes | Shown the way the desktop shows volume changes. |
 
-Which way is "up" on each roller has not been seen on a tablet yet.
-
 ## Work area
 
 | XPPen's app | Xperience | Note |
@@ -67,7 +64,7 @@ Which way is "up" on each roller has not been seen on a tablet yet.
 | Set full screen | Yes | |
 | Customize screen area: drag, click two corners on the screen, or numbers | Yes | Clicking the corners needs the pen on one monitor. |
 | Identify | Yes | |
-| Rotation 0°, 90°, 180°, 270° | Yes | 90° and 270° have not been seen on a tablet yet. |
+| Rotation 0°, 90°, 180°, 270° | Yes | |
 | Full area | Yes | |
 | Customize active area: drag, tap two corners with the pen, or numbers | Yes | |
 | Proportion | Yes | Also the other way round: "Match pen shape" narrows the screen area instead of the tablet's. |

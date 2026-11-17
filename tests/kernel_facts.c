@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Prints the kernel's numbers that the settings program uses, from the kernel's own headers, one NAME=VALUE
 // per line. The program's tests compare what it has against these.
 #include <stddef.h>
