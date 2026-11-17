@@ -191,6 +191,16 @@ install)
 	chmod 755 "$probe.new"
 	mv "$probe.new" "$probe"
 
+	# The rule the loader wrote loads the driver without the pen's options (see the rules below); ours does it.
+	rm -f "$root"/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd*.rules
+	loader=$(command -v udev-hid-bpf)
+	sys_path='$sys$devpath'
+	properties=""
+	for property in XPERIENCE_PEN_UPPER_BUTTON XPERIENCE_PEN_LOWER_BUTTON XPERIENCE_PEN_TILT XPERIENCE_PEN_SWITCH_KEYS \
+		XPERIENCE_PEN_SMOOTHING; do
+		properties="$properties --property $property=\$env{$property}"
+	done
+
 	mkdir -p "$(dirname "$rules")"
 	# Numbered 70: access rules only count before 73, and the pen's options have to be set before the
 	# driver is loaded by the rules numbered in the 80s.
@@ -211,6 +221,13 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28bd", ATTR{idPro
 
 # What the driver is loaded with.
 SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys", ENV{XPERIENCE_PEN_SMOOTHING}="$smoothing"
+
+# The driver is loaded when the tablet appears. The loader reads a device's udev record, which the "add" event
+# has not written yet, so the pen's options are handed to it here.
+SUBSYSTEM=="hid", ACTION=="add", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", IMPORT{program}+="$loader add $sys_path /etc/udev-hid-bpf/$name$properties"
+SUBSYSTEM=="hid", ACTION=="remove", ENV{MODALIAS}=="hid:b0003g0001v000028BDp0000097E", RUN{program}+="$loader remove $sys_path"
+# Binding the device again clears what the loader set on it; it is read back from what is loaded.
+SUBSYSTEM=="hid", ACTION=="bind|unbind", ENV{MODALIAS}=="hid:b0003g0001v000028BDp0000097E", IMPORT{program}+="$loader list-loaded --format udev --syspath $sys_path"
 RULES
 	mv "$rules.new" "$rules"
 	reload_rules

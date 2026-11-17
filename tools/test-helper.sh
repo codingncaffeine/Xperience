@@ -113,6 +113,9 @@ check "the rules run the installed probe when a HID device of the maker appears"
 check "the driver is loaded with what the tablet said it is" \
 	'[ "$(grep -c -- "--property XPERIENCE_PEN_SMOOTHING=4 --property XPERIENCE_TABLET_X_MAX=68199 --property XPERIENCE_TABLET_PRESSURE_MAX=16383 --property XPERIENCE_TABLET_PROBE=ok .*097E" "$work/calls")" = 2 ]'
 check "a probe line of another form is not passed on" '! grep -q "OTHER=1\|TABLET_KEYS" "$work/calls"'
+check "the rules load the driver when the tablet appears, with the pen's options" \
+	'grep -q "ACTION==\"add\", ATTRS{idVendor}==\"28bd\", ATTRS{idProduct}==\"097e\", IMPORT{program}+=\"$work/bin/udev-hid-bpf add \$sys\$devpath /etc/udev-hid-bpf/$name --property XPERIENCE_PEN_UPPER_BUTTON=\$env{XPERIENCE_PEN_UPPER_BUTTON} .*--property XPERIENCE_PEN_SMOOTHING=\$env{XPERIENCE_PEN_SMOOTHING}\"" "$rules"'
+check "the loader's own rule, which knows nothing of the options, is not left in place" '[ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
 
