@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             x:Class="Xperience.App.Views.DisplayView"
+             x:DataType="vm:DisplayViewModel">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Classes="icon" Command="{Binding Main.ShowHomeCommand}" ToolTip.Tip="Back to the tablet">
+                <PathIcon Data="{StaticResource IconBack}" Width="16" Height="16" />
+            </Button>
+            <TextBlock Classes="title" Text="Display settings" FontSize="17" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Classes="muted" Margin="0,14,0,0" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
+                   Text="{Binding Note}" IsVisible="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel Grid.Row="2" Spacing="16" Margin="0,16,0,0" Width="760" HorizontalAlignment="Left">
+        <Border Classes="card" Padding="20,16" IsVisible="{Binding HasScreen}">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="heading" Text="BRIGHTNESS" />
+                    <TextBlock Grid.Column="1" Classes="muted" FontSize="12.5" Text="{Binding ScreenLabel}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,56" IsEnabled="{Binding CanSetBrightness}">
+                    <Slider x:Name="Brightness" Minimum="0" Maximum="100" Value="{Binding Brightness}" TickFrequency="1" IsSnapToTickEnabled="True"
+                            ToolTip.Tip="How bright the tablet's screen is" />
+                    <TextBlock Grid.Column="1" Text="{Binding BrightnessText}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="card" Padding="20,16">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
+                    <TextBlock Text="Color and the rest" FontWeight="SemiBold" />
+                    <TextBlock Classes="muted" TextWrapping="Wrap"
+                               Text="Color profile, night light, scale and orientation are the desktop's settings for this monitor." />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="action" Content="Open the desktop's display settings" Margin="16,0,0,0"
+                        Command="{Binding DesktopSettingsCommand}" />
+            </Grid>
+        </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -142,9 +142,13 @@ public sealed class Bench : IDisposable
     /// <summary>What the make-believe administrator helper does when it is run; by default it succeeds.</summary>
     public Func<IReadOnlyList<string>, (int, string)> Elevate { get; set; } = _ => (0, "");
 
-    Bench(TabletPresence presence, XperienceConfig? config)
+    Bench(TabletPresence presence, XperienceConfig? config, bool upright)
     {
         Presence = presence;
+        // The sample desktop has the tablet turned around, as its owner holds it. Tests about what a key is
+        // set to ask for it upright, where the tablet's own key numbers are the places as held.
+        if (upright)
+            Desktop.SetPen(Desktop.ReadAsync(TabletModel.Artist16Third).GetAwaiter().GetResult().Pen! with { Flipped = false });
         Directory.CreateDirectory(Folder);
         Store = new ConfigStore(Path.Combine(Folder, "config"), Path.Combine(Folder, "state"));
         if (config != null)
@@ -168,16 +172,16 @@ public sealed class Bench : IDisposable
             Elevated.Add(string.Join(' ', command.Skip(1).Select(Path.GetFileName)));
             return Task.FromResult(Elevate(command));
         });
-        Autostart = new Autostart(Path.Combine(Folder, "autostart", "xperience.desktop"), "/opt/xperience/xperience");
+        Autostart = new Autostart(Path.Combine(Folder, "autostart", "xperience.desktop"), "/opt/xperience/xperience", Path.Combine(Folder, "system", "etc/xdg/autostart/xppentablet.desktop"));
         Main = new MainViewModel(Desktop, () => Presence, "0.0.0", "", new AppServices(Hub, Dialogs, Driver, Autostart));
     }
 
     public string SystemFolder => Path.Combine(Folder, "system");
 
     /// <summary>Opens the window's state as the program does at its start.</summary>
-    public static async Task<Bench> OpenAsync(TabletPresence? presence = null, XperienceConfig? config = null)
+    public static async Task<Bench> OpenAsync(TabletPresence? presence = null, XperienceConfig? config = null, bool upright = false)
     {
-        var bench = new Bench(presence ?? BuiltIn, config);
+        var bench = new Bench(presence ?? BuiltIn, config, upright);
         await bench.Main.StartAsync();
         return bench;
     }
@@ -188,6 +192,7 @@ public sealed class Bench : IDisposable
     sealed class Ui(List<string> shown) : IHubUi
     {
         public void ShowWindow() => shown.Add("window");
+        public void ToggleWindow() => shown.Add("window");
         public void ToggleFloatingMenu() => shown.Add("menu");
     }
 

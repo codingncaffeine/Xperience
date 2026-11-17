@@ -15,6 +15,7 @@
             <StackPanel Spacing="8">
                 <RadioButton Classes="tab" GroupName="kind" Content="Shortcut keys" IsChecked="{Binding IsShortcut}" />
                 <RadioButton Classes="tab" GroupName="kind" Content="Mouse control" IsChecked="{Binding IsMouse}" IsVisible="{Binding ShowMouse}" />
+                <RadioButton Classes="tab" GroupName="kind" Content="Dual-function" IsChecked="{Binding IsAlternate}" />
                 <RadioButton Classes="tab" GroupName="kind" Content="Run application" IsChecked="{Binding IsRun}" />
                 <RadioButton Classes="tab" GroupName="kind" Content="Other" IsChecked="{Binding IsOther}" />
             </StackPanel>
@@ -38,6 +39,16 @@
                                        VerticalAlignment="Stretch" />
                         <TextBlock Grid.Row="2" Classes="muted" FontSize="12.5" Margin="0,12,0,0"
                                    Text="One shortcut is held for as long as the control is held, so Alt or Space work as on a keyboard. Several are typed one after another." />
+                    </Grid>
+
+                    <!-- Dual-function: two shortcuts taking turns -->
+                    <Grid RowDefinitions="Auto,*,Auto,*,Auto" IsVisible="{Binding IsAlternate}">
+                        <TextBlock Classes="heading" Text="FIRST PRESS" Margin="0,0,0,8" />
+                        <c:ShortcutBox Grid.Row="1" Keys="{Binding FirstKeys}" Max="1" VerticalAlignment="Stretch" />
+                        <TextBlock Grid.Row="2" Classes="heading" Text="NEXT PRESS" Margin="0,14,0,8" />
+                        <c:ShortcutBox Grid.Row="3" Keys="{Binding SecondKeys}" Max="1" VerticalAlignment="Stretch" />
+                        <TextBlock Grid.Row="4" Classes="muted" FontSize="12.5" Margin="0,12,0,0" TextWrapping="Wrap"
+                                   Text="The control takes turns between the two: the first shortcut on one press, the second on the next, such as brush and eraser. Click a box and press its shortcut; pressing another replaces it." />
                     </Grid>
 
                     <!-- Mouse control -->

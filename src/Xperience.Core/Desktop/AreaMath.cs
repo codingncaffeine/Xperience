@@ -81,6 +81,30 @@ public static class AreaMath
         _ => panel,
     };
 
+    /// <summary>The smallest side an area picked by its corners may have, as a share of the surface.</summary>
+    public const double SmallestSide = 0.05;
+
+    /// <summary>
+    /// The area between two opposite corners, whichever way round they were given. Null when it would be
+    /// narrower or lower than <see cref="SmallestSide"/>: two taps on nearly the same spot are not an area.
+    /// </summary>
+    public static RectD? FromCorners((double X, double Y) first, (double X, double Y) second)
+    {
+        double left = Math.Clamp(Math.Min(first.X, second.X), 0, 1), right = Math.Clamp(Math.Max(first.X, second.X), 0, 1);
+        double top = Math.Clamp(Math.Min(first.Y, second.Y), 0, 1), bottom = Math.Clamp(Math.Max(first.Y, second.Y), 0, 1);
+        return right - left < SmallestSide || bottom - top < SmallestSide ? null : new RectD(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Where a tap on the tablet lies in the frame the active area is given in: the surface as the person
+    /// looks at it, after the desktop's half turn and the tablet's quarter turn.
+    /// </summary>
+    public static (double X, double Y) TapOnSurface((double X, double Y) raw, bool flipped, TabletTurn quarterPart)
+    {
+        var (x, y) = flipped ? (1 - raw.X, 1 - raw.Y) : raw;
+        return PenMatrix.ForTurn(quarterPart).Apply(x, y);
+    }
+
     /// <summary>A share-of-screen rectangle kept inside the screen and never thinner than a twentieth of it.</summary>
     public static RectD Clamp(RectD area)
     {

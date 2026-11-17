@@ -46,11 +46,24 @@ public sealed class ScribbleArea : Control
         }
     }
 
+    /// <summary>
+    /// Raised when a stroke on the patch ends, with what the window system handed this program for it: the
+    /// kind of pointer and the pressure it carried. That is the pressure after the desktop's own curve, which
+    /// the pen's raw reading cannot show.
+    /// </summary>
+    public event Action<string>? StrokeSeen;
+
+    float _least, _most;
+    int _points;
+    string _pointer = "";
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
             return;
         _last = e.GetPosition(this);
+        (_least, _most, _points, _pointer) = (point.Properties.Pressure, point.Properties.Pressure, 1, e.Pointer.Type.ToString());
         e.Pointer.Capture(this);
     }
 
@@ -59,6 +72,8 @@ public sealed class ScribbleArea : Control
         if (_last is not { } from || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         var to = e.GetPosition(this);
+        float seen = e.GetCurrentPoint(this).Properties.Pressure;
+        (_least, _most, _points) = (Math.Min(_least, seen), Math.Max(_most, seen), _points + 1);
         double share = Pressure > 0 ? Math.Clamp(Pressure, 0, 1) : 0.08;
         _strokes.Add((from, to, Thinnest + share * (Thickest - Thinnest)));
         // Old ink goes first: a test patch never needs more than this.
@@ -70,7 +85,11 @@ public sealed class ScribbleArea : Control
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
+        if (_last != null && _points > 0)
+            StrokeSeen?.Invoke(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"stroke on the test patch as this program received it: {_pointer.ToLowerInvariant()} pointer, {_points} points, pressure {_least:0.000}..{_most:0.000} of 1"));
         _last = null;
+        _points = 0;
         e.Pointer.Capture(null);
     }
 }

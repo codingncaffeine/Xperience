@@ -80,17 +80,25 @@ public static class Assignments
     /// Every binding the desktop should hold for a profile. Entries with an empty value are bindings that must
     /// not exist, so that leftovers get removed.
     /// </summary>
-    public static IReadOnlyList<Rebind> Desired(XperienceConfig config, Profile profile, IReadOnlyList<int> dialSlots, TabletDevices devices)
+    /// <param name="config">The settings as a whole.</param>
+    /// <param name="profile">The profile in effect.</param>
+    /// <param name="dialSlots">Which function each dial is on, in the order the dials run as the tablet is held.</param>
+    /// <param name="devices">The names the desktop files the bindings under.</param>
+    /// <param name="turn">How the tablet is turned, which decides which of its own keys is the first as held.</param>
+    public static IReadOnlyList<Rebind> Desired(XperienceConfig config, Profile profile, IReadOnlyList<int> dialSlots, TabletDevices devices, TabletTurn turn = TabletTurn.None)
     {
         var wanted = new List<Rebind>();
         if (devices.PadName is { Length: > 0 } pad)
         {
-            for (int i = 0; i < Profile.KeyCount; i++)
-                wanted.Add(new Rebind(Rebind.Keys, pad, i.ToString(CultureInfo.InvariantCulture), config.KeysDisabled ? Off : Native(profile.Key(i)) ?? Off));
-            for (int d = 0; d < Profile.DialCount; d++)
+            // The desktop knows the keys and dials by the tablet's own numbers; the profile has them as held.
+            for (int own = 0; own < Profile.KeyCount; own++)
+                wanted.Add(new Rebind(Rebind.Keys, pad, own.ToString(CultureInfo.InvariantCulture),
+                    config.KeysDisabled ? Off : Native(profile.Key(Tablets.HeldOrder.Key(own, turn))) ?? Off));
+            for (int own = 0; own < Profile.DialCount; own++)
             {
-                int slot = d < dialSlots.Count ? dialSlots[d] : 0;
-                wanted.Add(new Rebind(Rebind.Dials, pad, d.ToString(CultureInfo.InvariantCulture), config.KeysDisabled ? Off : Native(profile.Dial(d, slot))));
+                int held = Tablets.HeldOrder.Dial(own, turn);
+                int slot = held < dialSlots.Count ? dialSlots[held] : 0;
+                wanted.Add(new Rebind(Rebind.Dials, pad, own.ToString(CultureInfo.InvariantCulture), config.KeysDisabled ? Off : Native(profile.Dial(held, slot))));
             }
         }
         if (devices.PenName is { Length: > 0 } pen)

@@ -76,7 +76,7 @@ static class Program
             store = new ConfigStore(Path.Combine(home, "config"), Path.Combine(home, "state"));
             injector = new NoInjector();
             driver = DemoDriver(Path.Combine(home, "system"), presence.Mode == DriveMode.Driver);
-            autostart = new Autostart(Path.Combine(home, "autostart", "xperience.desktop"), "xperience");
+            autostart = new Autostart(Path.Combine(home, "autostart", "xperience.desktop"), "xperience", Path.Combine(home, "system", "etc/xdg/autostart/xppentablet.desktop"));
         }
         else
         {
@@ -109,9 +109,34 @@ static class Program
         if (args.Contains("--check-apps"))
             return CheckApps(compositor);
 
+        // The record of the session sits beside the program's state. It is opened only now, so the short
+        // commands above leave no trace in it.
+        var log = Xperience.Core.Diagnostics.SessionLog.Open(store.StateFolder);
+        if (log != null)
+        {
+            log.Write("start", $"Xperience {version}, built {BuildTime()}, build {InstanceLink.ThisBuild[..8]}{(string.IsNullOrEmpty(demo) ? "" : ", demo")}"
+                + $"{(args.Length > 0 ? ", started with " + string.Join(' ', args) : "")}; "
+                + $"session {Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") ?? "?"} on {Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "?"}, "
+                + $"kernel {Environment.OSVersion.Version}, {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}");
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                log.Write("crash", e.ExceptionObject.ToString() ?? "an exception nothing caught");
+                log.Settle();
+            };
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                log.Write("start", "Xperience ended");
+                log.Dispose();
+            };
+        }
+
         App.Start = new StartupState(compositor, scan, version, BuildTime(),
             Environment.GetEnvironmentVariable("XPERIENCE_OPEN"), Environment.GetEnvironmentVariable("XPERIENCE_THEME"),
-            store, injector, driver, autostart, args.Contains("--background"), !string.IsNullOrEmpty(demo), instancePath);
+            store, injector, driver, autostart, args.Contains("--background"), !string.IsNullOrEmpty(demo), instancePath)
+        {
+            Log = (Xperience.Core.Diagnostics.ILog?)log ?? Xperience.Core.Diagnostics.NoLog.Instance,
+            LogPath = log?.Path ?? "",
+        };
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnExplicitShutdown);
     }
 
@@ -147,7 +172,8 @@ static class Program
         var status = driver.Read();
         Console.WriteLine($"Driver:   {(status.Installed ? "installed" : "not installed")}, loader {(status.LoaderInstalled ? "present" : "missing")}, " +
             $"this build {(status.CanInstall ? "carries it" : "does not carry it")}");
-        Console.WriteLine($"  upper button  {(status.Options.UpperIsButton ? "button" : "eraser")}");
+        Console.WriteLine($"  upper button  {DriverOptions.Word(status.Options.Upper)}");
+        Console.WriteLine($"  lower button  {DriverOptions.Word(status.Options.Lower)}");
         Console.WriteLine($"  tilt          {(status.Options.TiltOff ? "off" : "on")}");
         var config = store.Load();
         Console.WriteLine($"Settings: {store.ConfigPath}");
@@ -267,6 +293,13 @@ static class Program
     }
 
     /// <summary>Used by <see cref="Main"/>, the designer and the headless tests.</summary>
+    /// <summary>
+    /// The name the window carries for the desktop. A taskbar finds a program's entry and icon by it, so the
+    /// installed desktop entry names the same class (StartupWMClass); set here so it cannot drift with the
+    /// program file's name.
+    /// </summary>
+    public const string WindowClass = "xperience";
+
     public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>().UsePlatformDetect().WithInterFont();
+        AppBuilder.Configure<App>().UsePlatformDetect().With(new X11PlatformOptions { WmClass = WindowClass }).WithInterFont();
 }

@@ -16,7 +16,23 @@ public sealed record ActionRequest(string Title, PadAction Current, PadAction De
 
 /// <summary>What the area dialog is asked to edit: a rectangle on a surface, shown in the surface's own units.</summary>
 public sealed record AreaRequest(string Title, string Hint, RectD Area, double UnitsWide, double UnitsHigh, string Unit, int Decimals,
-    IReadOnlyList<RectD>? Parts = null, bool DarkSurface = false);
+    IReadOnlyList<RectD>? Parts = null, bool DarkSurface = false)
+{
+    /// <summary>How the area can also be picked by its two corners; null when that is not on offer.</summary>
+    public CornerRequest? Corners { get; init; }
+
+    /// <summary>Why picking by corners is not on offer, for the person to read.</summary>
+    public string CornersUnavailable { get; init; } = "";
+}
+
+/// <summary>
+/// Picking an area by its upper left and lower right corners on a veil that covers <paramref name="Screen"/>:
+/// with clicks on the screen itself, or, <paramref name="WithPen"/>, with pen taps on the tablet's surface.
+/// </summary>
+public sealed record CornerRequest(ScreenInfo Screen, bool WithPen, bool Flipped = false, TabletTurn QuarterPart = TabletTurn.None)
+{
+    public string Label => WithPen ? "Click to set the active area" : "Click to set screen area";
+}
 
 /// <summary>Where the calibration crosses go and what the pen is set to, so the result can be worked out.</summary>
 public sealed record CalibrationRequest(ScreenInfo Screen, RectD ScreenArea, bool Flipped);
@@ -55,6 +71,9 @@ public sealed partial class ActionDialogViewModel : ObservableObject
     [ObservableProperty] private bool _isMouse;
     [ObservableProperty] private bool _isRun;
     [ObservableProperty] private bool _isOther;
+    [ObservableProperty] private bool _isAlternate;
+    [ObservableProperty] private string _firstKeys = "";
+    [ObservableProperty] private string _secondKeys = "";
     [ObservableProperty] private string _keys = "";
     [ObservableProperty] private bool _addSuper;
     [ObservableProperty] private bool _shift;
@@ -95,8 +114,10 @@ public sealed partial class ActionDialogViewModel : ObservableObject
             IsShortcut = action.Kind == ActionKind.Shortcut;
             IsMouse = action.Kind == ActionKind.Mouse && ShowMouse;
             IsRun = action.Kind == ActionKind.RunApp;
-            IsOther = !IsShortcut && !IsMouse && !IsRun;
+            IsAlternate = action.Kind == ActionKind.Alternate;
+            IsOther = !IsShortcut && !IsMouse && !IsRun && !IsAlternate;
             Keys = action.Kind == ActionKind.Shortcut ? action.Keys : "";
+            (FirstKeys, SecondKeys) = action is { Kind: ActionKind.Alternate, Combos: [var first, var second] } ? (first.ToString(), second.ToString()) : ("", "");
             AddSuper = false;
             Shift = action.MouseMods.HasFlag(MouseMods.Shift);
             Ctrl = action.MouseMods.HasFlag(MouseMods.Ctrl);
@@ -127,6 +148,8 @@ public sealed partial class ActionDialogViewModel : ObservableObject
                 (Shift ? MouseMods.Shift : 0) | (Ctrl ? MouseMods.Ctrl : 0) | (LeftAlt ? MouseMods.LeftAlt : 0) | (RightAlt ? MouseMods.RightAlt : 0) | (Space ? MouseMods.Space : 0));
         else if (IsRun)
             action = App.Trim().Length > 0 ? PadAction.Run(App.Trim()) : PadAction.Off;
+        else if (IsAlternate)
+            action = PadAction.Alternating(FirstKeys, SecondKeys);
         else
             action = Other switch
             {
@@ -244,10 +267,28 @@ public sealed partial class AreaDialogViewModel : ObservableObject
     [ObservableProperty] private decimal? _width;
     [ObservableProperty] private decimal? _height;
 
-    public AreaDialogViewModel(AreaRequest request)
+    readonly Func<CornerRequest, Task<RectD?>>? _pickCorners;
+
+    /// <param name="request">What is being picked.</param>
+    /// <param name="pickCorners">Shows the pick-by-corners veil and gives back the area, or null when it was left.</param>
+    public AreaDialogViewModel(AreaRequest request, Func<CornerRequest, Task<RectD?>>? pickCorners = null)
     {
         _request = request;
+        _pickCorners = pickCorners;
         Area = request.Area;
+    }
+
+    public bool CanPickCorners => _request.Corners != null && _pickCorners != null;
+    public string CornersLabel => _request.Corners?.Label ?? (_request.DarkSurface ? "Click to set the active area" : "Click to set screen area");
+    public string CornersNote => CanPickCorners
+        ? (_request.Corners!.WithPen ? "Tap the area's upper left and lower right corners on the tablet with the pen." : "Click the area's upper left and lower right corners on the monitor itself.")
+        : _request.CornersUnavailable;
+
+    [RelayCommand]
+    async Task PickCorners()
+    {
+        if (_request.Corners is { } corners && _pickCorners != null && await _pickCorners(corners) is { } picked)
+            Area = AreaMath.Clamp(picked);
     }
 
     public string Title => _request.Title;

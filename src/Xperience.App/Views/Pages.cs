@@ -21,6 +21,18 @@ public sealed partial class WorkAreaView : UserControl
     public WorkAreaView() => AvaloniaXamlLoader.Load(this);
 }
 
+public sealed partial class DisplayView : UserControl
+{
+    public DisplayView()
+    {
+        AvaloniaXamlLoader.Load(this);
+        // The brightness is written once, when the slider is let go, not for every step on the way.
+        var brightness = this.FindControl<Slider>("Brightness")!;
+        brightness.AddHandler(PointerReleasedEvent, (_, _) => _ = (DataContext as DisplayViewModel)?.ApplyBrightnessAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        brightness.AddHandler(KeyUpEvent, (_, _) => _ = (DataContext as DisplayViewModel)?.ApplyBrightnessAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+}
+
 public sealed partial class FloatingMenuView : UserControl
 {
     public FloatingMenuView() => AvaloniaXamlLoader.Load(this);
@@ -47,6 +59,7 @@ public sealed partial class PenView : UserControl
         _live = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(33) };
         _live.Tick += (_, _) => (DataContext as PenViewModel)?.Tick();
         this.FindControl<CurveEditor>("Editor")!.Edited += (_, _) => _ = (DataContext as PenViewModel)?.ApplyAsync();
+        this.FindControl<ScribbleArea>("Scribble")!.StrokeSeen += line => (DataContext as PenViewModel)?.Main.Log.Write("app", line);
         // The speed is written once, when the slider is let go, not for every step on the way.
         var speed = this.FindControl<Slider>("Speed")!;
         speed.AddHandler(PointerReleasedEvent, (_, _) => _ = (DataContext as PenViewModel)?.ApplySpeedAsync(), RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);

@@ -12,6 +12,8 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
 {
     bool _loading;
 
+    [ObservableProperty] private bool _makersAppInstalled;
+    [ObservableProperty] private bool _makersAppStarts;
     [ObservableProperty] private string _tabletLine = "";
     [ObservableProperty] private string _modeLine = "";
     [ObservableProperty] private string _desktopLine = "";
@@ -70,6 +72,8 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             KeysDisabled = config.KeysDisabled;
             KeepRunning = config.KeepRunning;
             StartWithDesktop = main.Autostart.Enabled;
+            MakersAppInstalled = main.Autostart.MakersAppInstalled;
+            MakersAppStarts = main.Autostart.MakersAppStarts;
             ShowDriver(main.DriverStatus, presence.Mode);
         }
         finally
@@ -112,6 +116,15 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             _ = main.ChangeConfigAsync(change);
     }
 
+    partial void OnMakersAppStartsChanged(bool value)
+    {
+        if (_loading)
+            return;
+        if (!main.Autostart.SetMakersAppStarts(value))
+            main.Problem = "The XPPen app's autostart entry in this account was not written by Xperience, so it is left as it is.";
+        Update();
+    }
+
     partial void OnStartWithDesktopChanged(bool value)
     {
         if (_loading)
@@ -119,6 +132,26 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         if (!main.Autostart.Set(value))
             main.Problem = "The autostart entry could not be changed.";
         Update();
+    }
+
+    /// <summary>Where the record of the session is kept; empty when there is none.</summary>
+    public string LogPath => main.LogPath;
+    public bool HasLog => main.LogPath.Length > 0;
+
+    /// <summary>Opens the folder the record is in with the desktop's file manager.</summary>
+    [RelayCommand]
+    void OpenLogFolder()
+    {
+        if (Path.GetDirectoryName(main.LogPath) is not { Length: > 0 } folder)
+            return;
+        try
+        {
+            using var opened = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open") { ArgumentList = { folder }, UseShellExecute = false });
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            main.Problem = $"The folder could not be opened; it is {folder}.";
+        }
     }
 
     [RelayCommand]
@@ -135,6 +168,7 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             var before = main.Snapshot.Pen;
             var driver = main.Driver;
             var (ok, problem) = await Task.Run(() => driver.InstallAsync(options));
+            main.Log.Write("driver", $"install with upper button {DriverOptions.Word(options.Upper)}, lower button {DriverOptions.Word(options.Lower)}, tilt {(options.TiltOff ? "off" : "on")}: {(ok ? "done" : "failed: " + problem)}");
             await AfterDriverChangeAsync(ok, problem, before);
         }
         finally

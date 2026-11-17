@@ -104,6 +104,27 @@ public class ControlsTests
     });
 
     [Fact]
+    public Task The_dual_function_tab_holds_two_shortcuts_and_needs_both() => OnUi(() =>
+    {
+        var dialog = new ActionDialogViewModel(new ActionRequest("Key 3", PadAction.Alternating("B", "E"), PadAction.Shortcut("Alt")));
+        Assert.True(dialog.IsAlternate);
+        Assert.False(dialog.IsShortcut || dialog.IsOther || dialog.IsMouse || dialog.IsRun);
+        Assert.Equal(("B", "E"), (dialog.FirstKeys, dialog.SecondKeys));
+        Assert.Contains("Xperience carries this out itself", dialog.Note);
+
+        dialog.SecondKeys = "Ctrl+Shift+Z";
+        Assert.Equal((ActionKind.Alternate, "B Ctrl+Shift+Z"), (dialog.Build().Kind, dialog.Build().Keys));
+        dialog.FirstKeys = "";
+        Assert.Equal(ActionKind.Disabled, dialog.Build().Kind);
+
+        // Default goes back to what the key does out of the box, on its own tab.
+        dialog.UseDefaultCommand.Execute(null);
+        Assert.True(dialog.IsShortcut);
+        Assert.False(dialog.IsAlternate);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task Clicking_a_key_or_a_dial_on_the_tablets_picture_asks_to_change_it() => OnUi(() =>
     {
         var keys = new List<int>();
@@ -138,6 +159,17 @@ public class ControlsTests
         window.MouseDown(Of(art.KeyHits[0]), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal([3, 0], keys);
+
+        // With the labels put away a key is still there to click, and only the key: where its label was is not.
+        var labeled = art.KeyHits[5];
+        art.ShowLabels = false;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(8, art.KeyHits.Count);
+        Assert.True(art.KeyHits[5].Width < labeled.Width);
+        window.MouseDown(Of(art.KeyHits[5]), MouseButton.Left);
+        window.MouseUp(Of(art.KeyHits[5]), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal([3, 0, 5], keys);
         window.Close();
         return Task.CompletedTask;
     });

@@ -14,6 +14,8 @@ public enum ActionKind
     /// <summary>One of the things only Xperience can do.</summary>
     Special,
     Disabled,
+    /// <summary>Two shortcuts taking turns: the first on one press, the second on the next, each held while the control is held.</summary>
+    Alternate,
 }
 
 public enum MouseAct { LeftClick, DoubleClick, MiddleClick, RightClick, ScrollUp, ScrollDown }
@@ -67,6 +69,10 @@ public sealed record PadAction
     public static readonly PadAction Off = new() { Kind = ActionKind.Disabled };
 
     public static PadAction Shortcut(string keys) => new() { Kind = ActionKind.Shortcut, Keys = KeyCombo.Write(KeyCombo.ParseAll(keys)) };
+    /// <summary>Two shortcuts that take turns, press by press. With fewer than two there is nothing to take turns.</summary>
+    public static PadAction Alternating(string first, string second) =>
+        KeyCombo.Parse(first) is { } a && KeyCombo.Parse(second) is { } b ? new() { Kind = ActionKind.Alternate, Keys = KeyCombo.Write([a, b]) } : Off;
+
     public static PadAction Click(MouseAct act, MouseMods mods = MouseMods.None) => new() { Kind = ActionKind.Mouse, Mouse = act, MouseMods = mods };
     public static PadAction Run(string app) => new() { Kind = ActionKind.RunApp, App = app };
     public static PadAction Do(SpecialAct act) => new() { Kind = ActionKind.Special, Special = act };
@@ -83,6 +89,7 @@ public sealed record PadAction
         ActionKind.Mouse => string.Join('+', [.. ModNames(MouseMods), MouseName(Mouse)]),
         ActionKind.RunApp => App.Length > 0 ? "Run " + Path.GetFileName(App.Split(' ')[0]) : "Run application",
         ActionKind.Special => SpecialName(Special),
+        ActionKind.Alternate => Combos is [var first, var second] ? $"{first} / {second}" : "No shortcuts",
         _ => "Disabled",
     };
 

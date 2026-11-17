@@ -12,8 +12,12 @@
                 </Button>
                 <TextBlock Classes="title" Text="Work area" FontSize="17" VerticalAlignment="Center" />
             </StackPanel>
+            <Button Grid.Column="1" Classes="icon" HorizontalAlignment="Right" Margin="0,0,8,0" Command="{Binding ResetAreasCommand}" IsEnabled="{Binding HasPen}"
+                    ToolTip.Tip="Put the areas and the calibration back to their defaults">
+                <PathIcon Data="{StaticResource IconUndo}" Width="16" Height="16" />
+            </Button>
             <Button Grid.Column="2" Classes="action" MinHeight="36" Padding="14,4" FontSize="12.5" Content="Display settings"
-                    Command="{Binding DisplaySettingsCommand}" ToolTip.Tip="Open the desktop's own settings for brightness and color" />
+                    Command="{Binding Main.ShowDisplayCommand}" ToolTip.Tip="Brightness of the tablet's screen, and the way to the desktop's color settings" />
         </Grid>
 
         <c:MappingDiagram Grid.Row="1" Margin="12,12,12,14" Screens="{Binding Screens}" TargetKind="{Binding TargetKind}"
@@ -26,20 +30,27 @@
                     <TextBlock Classes="heading" Text="SCREEN" />
                     <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" />
                     <Grid ColumnDefinitions="*,8,*,8,*">
-                        <Button Classes="action" Classes.picked="{Binding IsWholeScreen}" Content="Whole screen" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding WholeScreenCommand}" IsEnabled="{Binding CanSetArea}"
-                                ToolTip.Tip="The pen reaches every part of the screen" />
-                        <Button Grid.Column="2" Classes="action" Classes.picked="{Binding IsSameShape}" Content="Match pen shape" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding SameShapeCommand}" IsEnabled="{Binding CanSetArea}"
-                                ToolTip.Tip="Use the middle of the screen in the pen area's shape, so circles stay round" />
-                        <Button Grid.Column="4" Classes="action" Classes.picked="{Binding IsCustomScreen}" Content="Custom area…" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding CustomScreenAreaCommand}" IsEnabled="{Binding CanSetArea}"
-                                ToolTip.Tip="Pick any part of the screen by dragging or by numbers" />
+                        <Button Classes="action" Classes.picked="{Binding IsWholeScreen}" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding WholeScreenCommand}" IsEnabled="{Binding CanSetArea}"
+                                ToolTip.Tip="The pen reaches every part of the screen">
+                            <TextBlock Text="Set full screen" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="action" Classes.picked="{Binding IsCustomScreen}" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding CustomScreenAreaCommand}" IsEnabled="{Binding CanSetArea}"
+                                ToolTip.Tip="Pick any part of the screen by dragging, by clicking its corners or by numbers">
+                            <TextBlock Text="Customize screen area" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button Grid.Column="4" Classes="action" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding IdentifyCommand}"
+                                ToolTip.Tip="Show each monitor's name on that monitor">
+                            <TextBlock Text="Identify" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Classes="muted" Text="{Binding ShapeNote}" FontSize="12.5" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Classes="action" MinHeight="32" Padding="14,4" FontSize="12.5" Content="Identify" Margin="10,0,0,0"
-                                Command="{Binding IdentifyCommand}" ToolTip.Tip="Show each monitor's name on that monitor" />
+                        <TextBlock Classes="muted" Text="{Binding ShapeNote}" FontSize="12.5" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Button Grid.Column="1" Classes="action" Classes.picked="{Binding IsSameShape}" MinHeight="32" Padding="14,4" FontSize="12.5" Content="Match pen shape" Margin="10,0,0,0"
+                                Command="{Binding SameShapeCommand}" IsEnabled="{Binding CanSetArea}"
+                                ToolTip.Tip="Use the middle of the screen in the pen area's shape, so circles stay round" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -49,15 +60,21 @@
                     <TextBlock Classes="heading" Text="PEN DISPLAY" />
                     <ComboBox ItemsSource="{Binding Turns}" SelectedItem="{Binding SelectedTurn}" IsEnabled="{Binding CanFlip}" />
                     <Grid ColumnDefinitions="*,8,*,8,*">
-                        <Button Classes="action" Classes.picked="{Binding IsFullArea}" Content="Full area" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding FullAreaCommand}" IsEnabled="{Binding CanSetGeometry}"
-                                ToolTip.Tip="The whole of the tablet's surface is in use" />
-                        <Button Grid.Column="2" Classes="action" Classes.picked="{Binding IsProportional}" Content="Proportion" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding ProportionCommand}" IsEnabled="{Binding CanSetGeometry}"
-                                ToolTip.Tip="Use the part of the tablet in the screen area's shape, so circles stay round and all of the screen area is reached" />
-                        <Button Grid.Column="4" Classes="action" Classes.picked="{Binding IsCustomArea}" Content="Custom area…" Padding="8,8"
-                                HorizontalAlignment="Stretch" Command="{Binding CustomActiveAreaCommand}" IsEnabled="{Binding CanSetGeometry}"
-                                ToolTip.Tip="Pick any part of the tablet's surface by dragging or by numbers" />
+                        <Button Classes="action" Classes.picked="{Binding IsFullArea}" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding FullAreaCommand}" IsEnabled="{Binding CanSetGeometry}"
+                                ToolTip.Tip="The whole of the tablet's surface is in use">
+                            <TextBlock Text="Full area" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="action" Classes.picked="{Binding IsCustomArea}" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding CustomActiveAreaCommand}" IsEnabled="{Binding CanSetGeometry}"
+                                ToolTip.Tip="Pick any part of the tablet's surface by dragging, by tapping its corners with the pen or by numbers">
+                            <TextBlock Text="Customize active area" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button Grid.Column="4" Classes="action" Classes.picked="{Binding IsProportional}" Padding="8,8"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Command="{Binding ProportionCommand}" IsEnabled="{Binding CanSetGeometry}"
+                                ToolTip.Tip="Use the part of the tablet in the screen area's shape, so circles stay round and all of the screen area is reached">
+                            <TextBlock Text="Proportion" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBlock Classes="muted" FontSize="12.5" VerticalAlignment="Center"

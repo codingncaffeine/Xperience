@@ -27,6 +27,8 @@ public sealed class PenReader : IDisposable
         _stream = stream;
         MaxX = AxisMax(stream, Input.KernelInput.EviocgAbsX);
         MaxY = AxisMax(stream, Input.KernelInput.EviocgAbsY);
+        MaxPressure = AxisMax(stream, Input.KernelInput.EviocgAbsX + AbsPressure);
+        MaxTilt = AxisMax(stream, Input.KernelInput.EviocgAbsX + AbsTiltX);
         _thread = new Thread(Run) { IsBackground = true, Name = "pen reader" };
         _thread.Start();
     }
@@ -49,6 +51,13 @@ public sealed class PenReader : IDisposable
     /// <summary>The largest X and Y the pen reports, as the kernel has them; 0 when it would not say.</summary>
     public int MaxX { get; }
     public int MaxY { get; }
+
+    /// <summary>The largest pressure and tilt the pen reports, as the kernel has them; 0 when it would not say.</summary>
+    public int MaxPressure { get; }
+    public int MaxTilt { get; }
+
+    /// <summary>Raised on the reader's thread with every report the kernel completes.</summary>
+    public event Action<PenSample>? Sampled;
 
     /// <summary>Where the pen is as shares of its surface, or null while it is away or the surface's size is unknown.</summary>
     public (double X, double Y)? Position
@@ -140,6 +149,7 @@ public sealed class PenReader : IDisposable
                             before = _latest;
                             _latest = pending;
                         }
+                        Sampled?.Invoke(pending);
                         if (before.LowerButton != pending.LowerButton)
                             ButtonChanged?.Invoke(false, pending.LowerButton);
                         if (before.UpperButton != pending.UpperButton)

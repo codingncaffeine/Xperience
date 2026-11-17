@@ -97,8 +97,22 @@ public sealed class WindowDialogs(Func<Window?> owner, Func<PenReader?> pen) : I
     public async Task<(IReadOnlyList<DialFunction> Slots, int Current)?> EditDialAsync(string title, IReadOnlyList<DialFunction> slots, int current, IReadOnlyList<DialFunction> defaults) =>
         await ShowAsync<(IReadOnlyList<DialFunction>, int)?>(new DialDialog { DataContext = new DialDialogViewModel(title, slots, current, defaults) });
 
-    public async Task<RectD?> EditAreaAsync(AreaRequest request) =>
-        await ShowAsync<RectD?>(new AreaDialog { DataContext = new AreaDialogViewModel(request) });
+    public async Task<RectD?> EditAreaAsync(AreaRequest request)
+    {
+        var dialog = new AreaDialog();
+        dialog.DataContext = new AreaDialogViewModel(request, corners => PickCornersAsync(dialog, corners));
+        return await ShowAsync<RectD?>(dialog);
+    }
+
+    async Task<RectD?> PickCornersAsync(Window parent, CornerRequest request)
+    {
+        var reader = request.WithPen ? pen() : null;
+        if (request.WithPen && reader == null)
+            return null;
+        var veil = new CornerWindow(request, reader);
+        veil.PlaceOn(parent, request.Screen.Name);
+        return await veil.ShowDialog<RectD?>(parent);
+    }
 
     public Task<bool> ConfirmAsync(string title, string text, string yes) => ShowAsync<bool>(new AskDialog(title, text, yes));
 

@@ -17,6 +17,13 @@ public sealed record ScreenInfo(string Name, int Number, RectD Bounds, double Sc
     /// </summary>
     public double PenAspect => OnItsSide ? (Bounds.Width > 0 ? Bounds.Height / Bounds.Width : 0) : Bounds.Aspect;
 
+    /// <summary>The panel's own size in millimeters, as built, the way its maker recorded it; zero when unknown.</summary>
+    public double WidthMm { get; init; }
+    public double HeightMm { get; init; }
+
+    /// <summary>How bright the desktop has the screen, as a share of its brightest; null when the desktop does not say.</summary>
+    public double? Brightness { get; init; }
+
     /// <summary>The label the lists show: the number the desktop gives the screen, its connector and its size.</summary>
     public string Label => $"Monitor {Number}  ·  {Name}  ·  {Bounds.Width:0} × {Bounds.Height:0}";
 }
@@ -80,6 +87,18 @@ public sealed record DesktopSnapshot(IReadOnlyList<ScreenInfo> Screens, PenState
     public TabletDevices Devices => new(Pen?.Name, PadName);
 
     public ScreenInfo? Screen(string name) => Screens.FirstOrDefault(s => s.Name == name);
+
+    /// <summary>
+    /// The tablet's own screen: the one monitor whose panel is the size of the tablet's surface. Null when no
+    /// monitor is that size or more than one is, since a guess here would dim the wrong screen.
+    /// </summary>
+    public ScreenInfo? OwnScreen(Tablets.TabletModel tablet)
+    {
+        const double slack = 4;
+        var same = Screens.Where(s => s.WidthMm > 0 && s.HeightMm > 0 &&
+            Math.Abs(s.WidthMm - tablet.ActiveAreaMm.Width) <= slack && Math.Abs(s.HeightMm - tablet.ActiveAreaMm.Height) <= slack).ToList();
+        return same.Count == 1 ? same[0] : null;
+    }
 }
 
 /// <summary>The desktop's own pen settings. Reads return what is in effect; writes go to the desktop, which keeps them.</summary>
@@ -115,6 +134,9 @@ public interface ICompositor : IAsyncDisposable
 
     /// <summary>Opens the desktop's own display settings, where brightness and color are.</summary>
     Task OpenDisplaySettingsAsync(CancellationToken cancel = default);
+
+    /// <summary>Sets how bright one screen is, as a share of its brightest. The desktop keeps it.</summary>
+    Task SetScreenBrightnessAsync(string screenName, double share, CancellationToken cancel = default);
 
     Task ToggleShowDesktopAsync(CancellationToken cancel = default);
     Task ToggleScreenKeyboardAsync(CancellationToken cancel = default);

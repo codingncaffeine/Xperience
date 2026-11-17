@@ -75,7 +75,7 @@ public class EditingTests
     [Fact]
     public Task Assigning_a_key_saves_it_binds_it_and_shows_it() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         var main = bench.Main;
         ActionRequest? asked = null;
         bench.Dialogs.Action = request =>
@@ -103,7 +103,7 @@ public class EditingTests
     [Fact]
     public Task Keys_can_be_assigned_before_the_driver_is_there_and_take_effect_when_it_comes() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync();
+        using var bench = await Bench.OpenAsync(upright: true);
         var main = bench.Main;
         bench.Dialogs.Action = _ => PadAction.Shortcut("E");
 
@@ -124,7 +124,7 @@ public class EditingTests
     [Fact]
     public Task A_dials_functions_are_set_together_and_the_switch_key_steps_through_them() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         var main = bench.Main;
         bench.Dialogs.Dial = (slots, current) =>
         {
@@ -182,7 +182,7 @@ public class EditingTests
 
         Assert.Equal(["confirm Upper pen button"], bench.Dialogs.Asked);
         Assert.Equal("Eraser while held", main.Pen.UpperLabel);
-        Assert.True(main.Pen.UpperIsEraser);
+        Assert.Equal((PenButtonRole.Eraser, PenButtonRole.Button), (main.Pen.UpperRole.Role, main.Pen.LowerRole.Role));
         Assert.False(main.Pen.CanSetDriverOptions);
     });
 
@@ -198,7 +198,7 @@ public class EditingTests
         var main = bench.Main;
         await main.RefreshAsync();
 
-        Assert.False(main.Pen.UpperIsEraser);
+        Assert.Equal((PenButtonRole.Button, PenButtonRole.Button), (main.Pen.UpperRole.Role, main.Pen.LowerRole.Role));
         Assert.False(main.Pen.TiltOn);
         Assert.True(main.Pen.CanSetDriverOptions);
         Assert.Equal("Pen button", main.Pen.UpperLabel);
@@ -212,7 +212,7 @@ public class EditingTests
     [Fact]
     public Task An_application_gets_a_profile_of_its_own_and_loses_it_again() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         var main = bench.Main;
         bench.Dialogs.App = running => running.Single(a => a.Id == "krita");
 
@@ -263,7 +263,7 @@ public class EditingTests
     [Fact]
     public Task Default_keys_puts_one_profile_back_and_asks_first() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         var main = bench.Main;
         bench.Dialogs.Action = _ => PadAction.Off;
         await main.Home.EditKey(7);
@@ -285,7 +285,7 @@ public class EditingTests
     [Fact]
     public Task The_settings_switches_are_saved_and_take_effect() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         var main = bench.Main;
         Assert.True(main.Settings.Hints);
         Assert.False(main.Settings.KeysDisabled);
@@ -387,7 +387,8 @@ public class EditingTests
         var main = bench.Main;
         bench.Dialogs.Action = _ => PadAction.Off;
         bench.Dialogs.App = running => running[0];
-        await main.Home.EditKey(7);
+        // The tablet is turned around here: its own first key is the eighth as held.
+        await main.Home.EditKey(0);
         await main.Home.AddProfile();
         await main.Pen.UsePresetCommand.ExecuteAsync("6");
         main.Pen.MouseMode = true;
@@ -406,7 +407,7 @@ public class EditingTests
 
         Assert.True(main.Config.SameAs(XperienceConfig.Default.Completed()));
         Assert.Equal("", main.EditingApp);
-        Assert.Equal("Key,Ctrl+Z", bench.Desktop.Binding(Rebind.Keys, "7"));
+        Assert.Equal("Key,Ctrl+Z", bench.Desktop.Binding(Rebind.Keys, "0"));
         var pen = await bench.PenAsync();
         Assert.True(pen.Pressure.Curve.IsCloseTo(PressureCurve.Linear));
         Assert.False(pen.MouseMode);
@@ -419,7 +420,7 @@ public class EditingTests
     [Fact]
     public Task Installing_the_driver_runs_the_helper_and_gives_the_renamed_pen_its_settings_back() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync();
+        using var bench = await Bench.OpenAsync(upright: true);
         var main = bench.Main;
         Assert.Equal("Not installed", main.Settings.DriverTitle);
         Assert.True(main.Settings.CanInstallDriver);
@@ -445,7 +446,7 @@ public class EditingTests
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
 
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button"], bench.Elevated);
         var pen = await bench.PenAsync();
         Assert.Equal("XPPen Artist 16 3rd Stylus", pen.Name);
         Assert.Equal((before.TargetKind, before.TargetScreen, before.Flipped, before.ScreenArea), (pen.TargetKind, pen.TargetScreen, pen.Flipped, pen.ScreenArea));
@@ -506,11 +507,118 @@ public class EditingTests
 
         main.Pen.TiltOn = false;
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off button"], bench.Elevated);
 
-        main.Pen.UpperIsEraser = false;
+        main.Pen.UpperRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
         await main.Pending;
-        Assert.Equal($"install {DriverSetup.ObjectName} button on", bench.Elevated[^1]);
+        Assert.Equal($"install {DriverSetup.ObjectName} button on button", bench.Elevated[^1]);
+    });
+
+    [Fact]
+    public Task A_pen_button_set_to_erase_or_to_switch_says_so_and_is_not_assignable_until_it_is_a_button_again() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync(Bench.Driven);
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev/rules.d"));
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf"));
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"),
+            "SUBSYSTEM==\"hid\", ENV{XPERIENCE_PEN_UPPER_BUTTON}=\"toggle\", ENV{XPERIENCE_PEN_LOWER_BUTTON}=\"eraser\", ENV{XPERIENCE_PEN_TILT}=\"on\"\n");
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf", DriverSetup.ObjectName), "");
+        var main = bench.Main;
+        await main.RefreshAsync();
+
+        Assert.Equal((PenButtonRole.Toggle, PenButtonRole.Eraser), (main.Pen.UpperRole.Role, main.Pen.LowerRole.Role));
+        Assert.Equal(("Pen/Eraser switch", "Eraser while held"), (main.Pen.UpperLabel, main.Pen.LowerLabel));
+        Assert.True(main.Pen.TiltOn);
+
+        await main.Pen.EditUpper();
+        await main.Pen.EditLower();
+        Assert.Equal(["confirm Upper pen button", "confirm Lower pen button"], bench.Dialogs.Asked);
+
+        main.Pen.LowerRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
+        await main.Pending;
+        Assert.Equal([$"install {DriverSetup.ObjectName} toggle on button"], bench.Elevated);
+    });
+
+    [Fact]
+    public void A_word_the_driver_does_not_know_leaves_a_pen_button_as_it_comes()
+    {
+        Assert.Equal(PenButtonRole.Eraser, DriverOptions.Role("Button", DriverOptions.Default.Upper));
+        Assert.Equal(PenButtonRole.Button, DriverOptions.Role(null, DriverOptions.Default.Lower));
+        Assert.Equal(PenButtonRole.Toggle, DriverOptions.Role("toggle", DriverOptions.Default.Lower));
+        foreach (var role in Enum.GetValues<PenButtonRole>())
+            Assert.Equal(role, DriverOptions.Role(DriverOptions.Word(role), role == PenButtonRole.Button ? PenButtonRole.Eraser : PenButtonRole.Button));
+    }
+
+    [Fact]
+    public Task The_work_area_reset_puts_the_areas_back_and_keeps_the_monitor_and_the_rotation() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync();
+        var main = bench.Main;
+        bench.Dialogs.Area = _ => new RectD(0.25, 0.1, 0.5, 0.5);
+        await main.WorkArea.CustomScreenArea();
+        await main.WorkArea.ProportionCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.False(main.WorkArea.IsWholeScreen);
+        Assert.False(main.WorkArea.IsFullArea);
+
+        bench.Dialogs.Confirm = false;
+        await main.WorkArea.ResetAreas();
+        Assert.False(main.WorkArea.IsWholeScreen);
+
+        bench.Dialogs.Confirm = true;
+        await main.WorkArea.ResetAreas();
+        await main.Pending;
+        var pen = await bench.PenAsync();
+        Assert.Equal(RectD.Full, pen.ScreenArea);
+        Assert.True(pen.Matrix.IsCloseTo(PenMatrix.Identity));
+        Assert.Equal((ScreenTargetKind.OneScreen, "DP-2", true), (pen.TargetKind, pen.TargetScreen, pen.Flipped));
+        Assert.True(main.WorkArea.IsWholeScreen && main.WorkArea.IsFullArea);
+        Assert.Equal(RectD.Full, bench.Store.Load().Geometry.ActiveArea);
+    });
+
+    [Fact]
+    public Task The_pen_reset_puts_pressure_mouse_mode_and_this_profiles_pen_buttons_back() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync();
+        var main = bench.Main;
+        bench.Dialogs.Action = _ => PadAction.Shortcut("E");
+        await main.Pen.EditLower();
+        await main.Pen.UsePresetCommand.ExecuteAsync("6");
+        main.Pen.MouseMode = true;
+        await main.Pending;
+        Assert.Equal("E", main.Config.DefaultProfile.PenLower.Label);
+        Assert.True((await bench.PenAsync()).MouseMode);
+
+        bench.Dialogs.Confirm = false;
+        await main.Pen.ResetPen();
+        Assert.Equal("E", main.Config.DefaultProfile.PenLower.Label);
+
+        bench.Dialogs.Confirm = true;
+        await main.Pen.ResetPen();
+        await main.Pending;
+        var pen = await bench.PenAsync();
+        Assert.True(pen.Pressure.Curve.IsCloseTo(PressureCurve.Linear));
+        Assert.False(pen.MouseMode);
+        Assert.Equal(ActionKind.Default, main.Config.DefaultProfile.PenLower.Kind);
+        // The work area is not the pen page's to reset.
+        Assert.Equal((ScreenTargetKind.OneScreen, "DP-2", true), (pen.TargetKind, pen.TargetScreen, pen.Flipped));
+    });
+
+    [Fact]
+    public Task The_eye_puts_the_labels_away_remembers_it_and_leaves_the_keys_to_click() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync();
+        var main = bench.Main;
+        Assert.True(main.Home.LabelsShown);
+
+        await main.Home.ToggleLabels();
+        Assert.False(main.Home.LabelsShown);
+        Assert.True(bench.Store.LoadState().LabelsHidden);
+        Assert.Equal(Profile.KeyCount, main.Home.KeyLabels.Count);
+
+        await main.Home.ToggleLabels();
+        Assert.True(main.Home.LabelsShown);
+        Assert.False(bench.Store.LoadState().LabelsHidden);
     });
 
     [Fact]
@@ -685,7 +793,7 @@ public class EditingTests
     public Task Precision_mode_ends_when_the_area_is_set_by_hand() => OnUi(async () =>
     {
         var config = XperienceConfig.Default.Completed().Change("", p => p.WithKey(1, PadAction.Do(SpecialAct.PrecisionMode)));
-        using var bench = await Bench.OpenAsync(Bench.Driven, config);
+        using var bench = await Bench.OpenAsync(Bench.Driven, config, upright: true);
         var main = bench.Main;
 
         await bench.Hub.KeyAsync(1, true);
@@ -876,7 +984,7 @@ public class EditingTests
     [Fact]
     public Task A_key_read_from_the_tablets_own_node_reaches_the_hub() => OnUi(async () =>
     {
-        using var bench = await Bench.OpenAsync(Bench.Driven);
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
         using var node = new FakeNode(bench.Folder, "pad");
         bench.Presence = Bench.Driven with { PadNode = node.Path };
         await bench.Main.RefreshAsync();

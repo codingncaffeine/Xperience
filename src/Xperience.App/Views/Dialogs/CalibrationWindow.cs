@@ -42,14 +42,8 @@ public sealed class CalibrationWindow : Window
     /// <summary>Puts the window on the monitor of that name, when the window system knows its monitors by name.</summary>
     public void PlaceOn(Window owner, string screenName)
     {
-        var screen = owner.Screens.All.FirstOrDefault(s => s.DisplayName == screenName);
-        if (screen == null)
-        {
+        if (!Placement.OnScreen(this, owner, screenName))
             _crosses.Warning = "Make sure this window is on the monitor the pen is mapped to before tapping.";
-            return;
-        }
-        WindowStartupLocation = WindowStartupLocation.Manual;
-        Position = screen.Bounds.Position;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

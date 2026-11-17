@@ -64,16 +64,27 @@
         </Grid>
 
         <!-- Options and the live reading -->
-        <StackPanel Grid.Column="4" Spacing="16">
-            <TextBlock Classes="heading" Text="OPTIONS" Margin="0,0,0,-6" />
+        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,-6">
+                <TextBlock Classes="heading" Text="OPTIONS" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="action" MinHeight="32" Padding="14,4" FontSize="12.5" Content="Defaults…"
+                        Command="{Binding ResetPenCommand}" ToolTip.Tip="Put the pressure response, mouse mode and the pen buttons back to their defaults" />
+            </Grid>
             <Border Classes="card" Padding="16,12">
                 <StackPanel Spacing="4">
                     <CheckBox Content="Pressure" IsChecked="{Binding PressureOn}"
                               ToolTip.Tip="Off makes every touch a full-pressure stroke" />
                     <CheckBox Content="Tilt" IsChecked="{Binding TiltOn}" IsEnabled="{Binding CanSetDriverOptions}"
-                              ToolTip.Tip="Off stops the pen from reporting how it leans" />
-                    <CheckBox Content="Upper button erases" IsChecked="{Binding UpperIsEraser}" IsEnabled="{Binding CanSetDriverOptions}"
-                              ToolTip.Tip="Off makes the upper button a plain button that can be assigned" />
+                              ToolTip.Tip="Off stops the pen from reporting how it leans. Changing this reloads the driver, which asks for administrator rights." />
+                    <StackPanel Spacing="4" Margin="0,8,0,8" IsEnabled="{Binding CanSetDriverOptions}">
+                        <TextBlock Classes="muted" FontSize="12.5" Text="Upper button is" />
+                        <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding UpperRole}" HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="A button can be given any action. Eraser while held turns the pen into its eraser for as long as the button is down. Pen/Eraser switch changes over at each press. Changing this reloads the driver, which asks for administrator rights; the pen is away for a moment." />
+                        <TextBlock Classes="muted" FontSize="12.5" Text="Lower button is" Margin="0,6,0,0" />
+                        <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding LowerRole}" HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="A button can be given any action. Eraser while held turns the pen into its eraser for as long as the button is down. Pen/Eraser switch changes over at each press. Changing this reloads the driver, which asks for administrator rights; the pen is away for a moment." />
+                    </StackPanel>
                     <CheckBox Content="Mouse mode" IsChecked="{Binding MouseMode}"
                               ToolTip.Tip="The pen moves the pointer from where it is, like a mouse, and the pointer stays put when the pen lifts" />
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="28,0,0,0" IsEnabled="{Binding MouseMode}" IsVisible="{Binding CanSetMouseSpeed}">
@@ -89,11 +100,12 @@
             <TextBlock Classes="heading" Text="CURRENT PRESSURE" Margin="0,4,0,-6" />
             <Border Classes="card" Padding="14,18,14,10">
                 <StackPanel Spacing="6">
-                    <c:PressureGauge Value="{Binding PressureRaw}" Maximum="{Binding PressureMax}" Height="112" />
+                    <c:PressureGauge Value="{Binding PressureRaw}" Maximum="{Binding PressureMax}" Height="96" />
                     <TextBlock Classes="muted" FontSize="12.5" Text="{Binding LiveNote}"
                                IsVisible="{Binding LiveNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
             </Border>
         </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

@@ -7,9 +7,25 @@ using Xperience.Core.Tablets;
 
 namespace Xperience.App.ViewModels;
 
+/// <summary>One line of the lists of what a pen button is to the driver.</summary>
+public sealed record RoleChoice(PenButtonRole Role, string Label)
+{
+    public override string ToString() => Label;
+}
+
 /// <summary>How the pen feels: its pressure response, its buttons, and what it is reporting right now.</summary>
 public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
 {
+    /// <summary>What a pen button can be to the driver, as the lists show it.</summary>
+    public static IReadOnlyList<RoleChoice> RoleChoices { get; } =
+    [
+        new(PenButtonRole.Button, "A button to assign"),
+        new(PenButtonRole.Eraser, "Eraser while held"),
+        new(PenButtonRole.Toggle, "Pen/Eraser switch"),
+    ];
+
+    public IReadOnlyList<RoleChoice> Roles => RoleChoices;
+
     /// <summary>With the top of the range this low, any touch at all is full pressure.</summary>
     const double PressureOffMax = 0.002;
 
@@ -25,7 +41,8 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
     [ObservableProperty] private bool _canSetMouseSpeed;
     [ObservableProperty] private bool _pressureOn = true;
     [ObservableProperty] private bool _tiltOn = true;
-    [ObservableProperty] private bool _upperIsEraser = true;
+    [ObservableProperty] private RoleChoice _upperRole = RoleChoices[1];
+    [ObservableProperty] private RoleChoice _lowerRole = RoleChoices[0];
     [ObservableProperty] private bool _canSetDriverOptions;
     [ObservableProperty] private string _driverNote = "";
     [ObservableProperty] private bool _hasPen;
@@ -68,13 +85,19 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
             Mark();
 
             bool driven = main.Presence.Mode == DriveMode.Driver;
-            UpperIsEraser = !(driven && driver.Options.UpperIsButton);
+            // Without the driver the tablet has the buttons as it comes: the upper one erases, the lower one is a button.
+            var options = driven ? driver.Options : DriverOptions.Default;
+            UpperRole = RoleChoices.First(c => c.Role == options.Upper);
+            LowerRole = RoleChoices.First(c => c.Role == options.Lower);
             TiltOn = !(driven && driver.Options.TiltOff);
             CanSetDriverOptions = driven && driver.CanInstall && driver.LoaderInstalled;
-            DriverNote = driven ? (CanSetDriverOptions ? "Changing these reloads the driver, which asks for administrator rights. The pen is away for a moment." : "")
-                : "These two are choices of the Xperience driver, which Settings can install.";
-            UpperLabel = UpperIsEraser ? "Eraser while held" : profile.PenUpper.Label;
-            LowerLabel = profile.PenLower.Kind == ActionKind.Default ? "Pen button" : profile.PenLower.Label;
+            // With the driver in place the lists say in their own tips that changing them reloads it; the note is
+            // for when they cannot be changed at all.
+            DriverNote = driven ? ""
+                : "Tilt and what the pen's buttons are to the driver are choices of the Xperience driver, which Settings can install.";
+            UpperLabel = UpperRole.Role != PenButtonRole.Button ? UpperRole.Label : profile.PenUpper.Label;
+            LowerLabel = LowerRole.Role != PenButtonRole.Button ? LowerRole.Label
+                : profile.PenLower.Kind == ActionKind.Default ? "Pen button" : profile.PenLower.Label;
             ProfileName = main.Config.Profiles.Count > 1 ? $"Buttons for: {profile.Name}" : "";
             LiveNote = !HasPen ? "" : main.CanReadPen ? "" : "Live pressure cannot be read: this account has no access to the pen's input device.";
         }
@@ -169,10 +192,16 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
             _ = SetDriverOptionsAsync(main.DriverStatus.Options with { TiltOff = !value });
     }
 
-    partial void OnUpperIsEraserChanged(bool value)
+    partial void OnUpperRoleChanged(RoleChoice value)
     {
-        if (!_loading)
-            _ = SetDriverOptionsAsync(main.DriverStatus.Options with { UpperIsButton = !value });
+        if (!_loading && value != null)
+            _ = SetDriverOptionsAsync(main.DriverStatus.Options with { Upper = value.Role });
+    }
+
+    partial void OnLowerRoleChanged(RoleChoice value)
+    {
+        if (!_loading && value != null)
+            _ = SetDriverOptionsAsync(main.DriverStatus.Options with { Lower = value.Role });
     }
 
     Task SetDriverOptionsAsync(DriverOptions options) => main.Pending = main.Settings.InstallDriverAsync(options);
@@ -180,6 +209,11 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
     [RelayCommand]
     public async Task EditLower()
     {
+        if (LowerRole.Role != PenButtonRole.Button)
+        {
+            await SayRoleAsync("Lower pen button", "lower", LowerRole);
+            return;
+        }
         var profile = main.EditingProfile;
         var result = await main.Dialogs.EditActionAsync(new ActionRequest("Lower pen button", profile.PenLower, PadAction.PenButton, ForPenButton: true));
         if (result != null)
@@ -189,10 +223,9 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
     [RelayCommand]
     public async Task EditUpper()
     {
-        if (UpperIsEraser)
+        if (UpperRole.Role != PenButtonRole.Button)
         {
-            await main.Dialogs.ConfirmAsync("Upper pen button",
-                "The upper button is the pen's eraser: holding it turns the pen over, as far as applications can tell. To give it another job, switch \"Upper button erases\" off under Options first.", "OK");
+            await SayRoleAsync("Upper pen button", "upper", UpperRole);
             return;
         }
         var profile = main.EditingProfile;
@@ -200,6 +233,33 @@ public sealed partial class PenViewModel(MainViewModel main) : ObservableObject
         if (result != null)
             await main.ChangeConfigAsync(c => c.Change(profile.App, p => p with { PenUpper = result }));
     }
+
+    /// <summary>
+    /// Puts the pen back as it comes: the straight pressure response, no mouse mode, and this profile's pen
+    /// buttons doing what the desktop has them do. What the buttons are to the driver is the driver's and stays.
+    /// </summary>
+    [RelayCommand]
+    public async Task ResetPen()
+    {
+        if (main.Snapshot.Pen is not { } pen || !await main.Dialogs.ConfirmAsync("Default pen settings",
+            "Put the pressure response, mouse mode and this profile's pen buttons back to their defaults?", "Restore"))
+            return;
+        var profile = main.EditingProfile;
+        await main.ChangeConfigAsync(c => (c with { PressureWhenOn = "" }).Change(profile.App, p => p with { PenLower = PadAction.PenButton, PenUpper = PadAction.PenButton }));
+        await main.WriteAsync(async (desktop, id) =>
+        {
+            await desktop.SetPressureAsync(id, PressureSettings.Default).ConfigureAwait(false);
+            if (pen.MouseMode)
+                await desktop.SetMouseModeAsync(id, false).ConfigureAwait(false);
+            if (pen.CanSetMouseSpeed && pen.MouseSpeed != 0)
+                await desktop.SetMouseSpeedAsync(id, 0).ConfigureAwait(false);
+        });
+    }
+
+    Task SayRoleAsync(string title, string which, RoleChoice role) => main.Dialogs.ConfirmAsync(title,
+        role.Role == PenButtonRole.Eraser
+            ? $"The {which} button is the pen's eraser: holding it turns the pen over, as far as applications can tell. To give it another job, set it to \"{RoleChoices[0].Label}\" under Options first."
+            : $"The {which} button switches between pen and eraser each time it is pressed. To give it another job, set it to \"{RoleChoices[0].Label}\" under Options first.", "OK");
 
     /// <summary>Takes the pen's newest report. Called by the page a few dozen times a second while it is shown.</summary>
     public void Tick()

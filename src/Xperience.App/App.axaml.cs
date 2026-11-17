@@ -19,7 +19,14 @@ namespace Xperience.App;
 
 /// <summary>What was prepared before the UI thread started.</summary>
 public sealed record StartupState(ICompositor? Compositor, Func<TabletPresence> Scan, string Version, string Built, string? Page, string? Theme,
-    ConfigStore Store, IInjector Injector, DriverSetup Driver, Autostart Autostart, bool Background, bool Demo, string? InstancePath);
+    ConfigStore Store, IInjector Injector, DriverSetup Driver, Autostart Autostart, bool Background, bool Demo, string? InstancePath)
+{
+    /// <summary>The record of the session; nobody's when it could not be opened.</summary>
+    public Xperience.Core.Diagnostics.ILog Log { get; init; } = Xperience.Core.Diagnostics.NoLog.Instance;
+
+    /// <summary>Where that record is kept; empty when there is none.</summary>
+    public string LogPath { get; init; } = "";
+}
 
 public sealed class App : Application, IHubUi
 {
@@ -47,9 +54,9 @@ public sealed class App : Application, IHubUi
             };
             // The program outlives its window: the keys that need it keep working with the window closed.
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            _hub = new ControlHub(start.Compositor, start.Store, start.Injector, TabletModel.Artist16Third) { Ui = this };
+            _hub = new ControlHub(start.Compositor, start.Store, start.Injector, TabletModel.Artist16Third) { Ui = this, Log = start.Log };
             var dialogs = new WindowDialogs(() => _window, () => _main?.PenReader);
-            _main = new MainViewModel(start.Compositor, start.Scan, start.Version, start.Built, new AppServices(_hub, dialogs, start.Driver, start.Autostart));
+            _main = new MainViewModel(start.Compositor, start.Scan, start.Version, start.Built, new AppServices(_hub, dialogs, start.Driver, start.Autostart) { Log = start.Log, LogPath = start.LogPath });
             _main.Open(OpenPage(start.Page));
             _main.FloatingMenu.ShowRequested += ToggleMenu;
             _hub.Changed += () => Dispatcher.UIThread.Post(() => _menu?.Fill());
@@ -109,6 +116,15 @@ public sealed class App : Application, IHubUi
     // ---- what the hub asks for; it calls from its own thread ----
 
     void IHubUi.ShowWindow() => Dispatcher.UIThread.Post(ShowMain);
+
+    void IHubUi.ToggleWindow() => Dispatcher.UIThread.Post(() =>
+    {
+        // In front already: the key that shows the window puts it away again. The program keeps running.
+        if (_window is { IsVisible: true, IsActive: true, WindowState: not WindowState.Minimized })
+            _window.Hide();
+        else
+            ShowMain();
+    });
     void IHubUi.ToggleFloatingMenu() => Dispatcher.UIThread.Post(ToggleMenu);
 
     void ShowMain()
@@ -168,24 +184,13 @@ public sealed class App : Application, IHubUi
         TrayIcon.SetIcons(this, [tray]);
     }
 
-    /// <summary>The program's mark, drawn here so no picture file has to be shipped: the X on its rounded square.</summary>
+    /// <summary>The program's mark, as the window, the task switcher and the tray show it.</summary>
     static WindowIcon? MakeIcon()
     {
         try
         {
-            const int size = 64;
-            using var bitmap = new RenderTargetBitmap(new PixelSize(size, size));
-            using (var context = bitmap.CreateDrawingContext())
-            {
-                context.DrawRectangle(new SolidColorBrush(Color.Parse("#8B9BFF")), null, new Rect(0, 0, size, size), 18, 18);
-                var stroke = new Pen(new SolidColorBrush(Color.Parse("#0E1020")), 9) { LineCap = PenLineCap.Round };
-                context.DrawLine(stroke, new Point(21, 20), new Point(43, 44));
-                context.DrawLine(stroke, new Point(43, 20), new Point(21, 44));
-            }
-            var stream = new MemoryStream();
-            bitmap.Save(stream, PngBitmapEncoderOptions.Default);
-            stream.Position = 0;
-            return new WindowIcon(stream);
+            using var picture = Avalonia.Platform.AssetLoader.Open(new Uri("avares://xperience/Assets/icon.png"));
+            return new WindowIcon(picture);
         }
         catch (Exception e) when (e is InvalidOperationException or NotSupportedException or IOException)
         {

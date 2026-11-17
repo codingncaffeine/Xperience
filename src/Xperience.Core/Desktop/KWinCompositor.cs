@@ -198,6 +198,17 @@ public sealed class KWinCompositor : ICompositor
         }
     }
 
+    public async Task SetScreenBrightnessAsync(string screenName, double share, CancellationToken cancel = default)
+    {
+        var (code, _, error) = await RunFullAsync("kscreen-doctor", [BrightnessArgument(screenName, share)], cancel).ConfigureAwait(false);
+        if (code != 0)
+            throw new IOException($"The desktop did not take the brightness for {screenName}: {error.Trim()}");
+    }
+
+    /// <summary>The desktop's own way of writing "this screen, this bright": a share of the brightest, sent in whole percent.</summary>
+    internal static string BrightnessArgument(string screenName, double share) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"output.{screenName}.brightness.{(int)Math.Round(Math.Clamp(share, 0, 1) * 100)}");
+
     public Task OpenDisplaySettingsAsync(CancellationToken cancel = default)
     {
         try

@@ -11,7 +11,12 @@ using Xperience.Core.Tablets;
 namespace Xperience.App.ViewModels;
 
 /// <summary>What the window's state is built on besides the desktop: the hub, the dialogs and the machine's own setup.</summary>
-public sealed record AppServices(ControlHub Hub, IDialogs Dialogs, DriverSetup Driver, Autostart Autostart);
+public sealed record AppServices(ControlHub Hub, IDialogs Dialogs, DriverSetup Driver, Autostart Autostart)
+{
+    /// <summary>The record of the session, and where it is kept; nobody's and nowhere in tests.</summary>
+    public Xperience.Core.Diagnostics.ILog Log { get; init; } = Xperience.Core.Diagnostics.NoLog.Instance;
+    public string LogPath { get; init; } = "";
+}
 
 /// <summary>
 /// The window's state. It holds nothing about the pen that it did not just read: every page shows the last
@@ -47,6 +52,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Version = version;
         Home = new HomeViewModel(this);
         WorkArea = new WorkAreaViewModel(this);
+        Display = new DisplayViewModel(this);
         Pen = new PenViewModel(this);
         Settings = new SettingsViewModel(this, version, built);
         FloatingMenu = new FloatingMenuViewModel(this);
@@ -71,9 +77,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public IDialogs Dialogs => _services.Dialogs;
     public DriverSetup Driver => _services.Driver;
     public Autostart Autostart => _services.Autostart;
+    public Xperience.Core.Diagnostics.ILog Log => _services.Log;
+    public string LogPath => _services.LogPath;
 
     public HomeViewModel Home { get; }
     public WorkAreaViewModel WorkArea { get; }
+    public DisplayViewModel Display { get; }
     public PenViewModel Pen { get; }
     public SettingsViewModel Settings { get; }
     public FloatingMenuViewModel FloatingMenu { get; }
@@ -93,7 +102,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public bool CanReadPen => _reader is { Ended: false };
     public PenReader? PenReader => _reader;
 
-    public bool IsTabletPage => CurrentPage == Home || CurrentPage == WorkArea || CurrentPage == FloatingMenu;
+    public bool IsTabletPage => CurrentPage == Home || CurrentPage == WorkArea || CurrentPage == FloatingMenu || CurrentPage == Display;
     public bool IsPenPage => CurrentPage == Pen;
     public bool IsSettingsPage => CurrentPage == Settings;
 
@@ -108,6 +117,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand] void ShowHome() => CurrentPage = Home;
     [RelayCommand] void ShowWorkArea() => CurrentPage = WorkArea;
+    [RelayCommand] void ShowDisplay() => CurrentPage = Display;
     [RelayCommand] void ShowPen() => CurrentPage = Pen;
     [RelayCommand] void ShowSettings() => CurrentPage = Settings;
     [RelayCommand] void ShowFloatingMenu() => CurrentPage = FloatingMenu;
@@ -118,6 +128,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         CurrentPage = page?.ToLowerInvariant() switch
         {
             "workarea" or "work-area" => WorkArea,
+            "display" => Display,
             "pen" => Pen,
             "settings" => Settings,
             "floatingmenu" or "floating-menu" => FloatingMenu,
@@ -180,10 +191,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 Presence = presence;
                 Snapshot = snapshot;
                 DriverStatus = status;
+                Record(presence, snapshot, status);
                 if (failure != null)
                     Problem = $"The desktop did not answer: {failure}";
-                // New device names mean the bindings have to be filed under them.
-                if (_synced != null && snapshot.Devices != _synced)
+                // New device names mean the bindings have to be filed under them, and a tablet turned another way
+                // has another key first as held.
+                var turn = snapshot.Pen?.Turn ?? TabletTurn.None;
+                if (_synced != null && (snapshot.Devices != _synced || turn != Hub.Turn))
                 {
                     _synced = snapshot.Devices;
                     await Hub.SyncAsync();
@@ -210,12 +224,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _reader = null;
             _readerNode = penNode;
             var hub = Hub;
+            var log = Log;
             _reader = await Task.Run(() =>
             {
                 old?.Dispose();
                 var reader = PenReader.Open(penNode);
                 if (reader != null)
+                {
                     reader.ButtonChanged += (upper, down) => _ = hub.PenButtonAsync(upper, down);
+                    reader.Sampled += new Xperience.Core.Diagnostics.PenLog(log).Take;
+                    log.Write("pen", string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                        $"reading {penNode}: x 0..{reader.MaxX}, y 0..{reader.MaxY}, pressure 0..{reader.MaxPressure}, tilt up to {reader.MaxTilt}"));
+                }
+                else if (penNode != null)
+                    log.Write("pen", $"{penNode} cannot be read by this account");
                 return reader;
             });
         }
@@ -225,12 +247,57 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _pad = null;
             _padNode = padNode;
             var hub = Hub;
+            var log = Log;
             _pad = await Task.Run(() =>
             {
                 old?.Dispose();
-                return PadReader.Open(padNode, (key, down) => _ = hub.KeyAsync(key, down));
+                // Every event of the keys and dials goes into the record as the kernel wrote it, dial turns included.
+                var pad = PadReader.Open(padNode, (key, down) => _ = hub.KeyAsync(key, down),
+                    (type, code, value) => log.Write("pad", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{PadReader.Name(type, code)} = {value}")));
+                if (padNode != null)
+                    log.Write("pad", pad != null ? $"reading {padNode}" : $"{padNode} cannot be read by this account");
+                return pad;
             });
         }
+    }
+
+    string _recorded = "";
+
+    /// <summary>Writes what was found into the record, once each time any of it has changed.</summary>
+    void Record(TabletPresence presence, DesktopSnapshot snapshot, DriverStatus status)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var pen = snapshot.Pen;
+        string[] lines =
+        [
+            $"tablet   {presence.Mode}, pen node {presence.PenNode ?? "none"}, keys node {presence.PadNode ?? "none"}{(presence.VendorAppRunning ? ", the XPPen app is running" : "")}",
+            $"driver   {(status.Installed ? "installed" : "not installed")}, loader {(status.LoaderInstalled ? "present" : "missing")}, upper button {DriverOptions.Word(status.Options.Upper)}, "
+                + $"lower button {DriverOptions.Word(status.Options.Lower)}, tilt {(status.Options.TiltOff ? "off" : "on")}",
+            "screens  " + (snapshot.Screens.Count == 0 ? "none" : string.Join("; ", snapshot.Screens.Select(s => string.Create(culture,
+                $"{s.Number} {s.Name} {s.Bounds.Width:0}x{s.Bounds.Height:0} at {s.Bounds.X:0},{s.Bounds.Y:0} turned {(int)s.Rotation} scale {s.Scale:0.##}")))),
+            pen == null ? "desktop  no pen listed" : string.Create(culture,
+                $"desktop  pen \"{pen.Name}\" ({pen.Id}) on {pen.TargetKind} {pen.TargetScreen}, "
+                + $"screen area {pen.ScreenArea.X:0.####},{pen.ScreenArea.Y:0.####} {pen.ScreenArea.Width:0.####}x{pen.ScreenArea.Height:0.####}, turned {(int)pen.Turn} (flipped {pen.Flipped}), "
+                + $"transform {pen.Matrix.A:0.#####} {pen.Matrix.B:0.#####} {pen.Matrix.C:0.#####} {pen.Matrix.D:0.#####} {pen.Matrix.E:0.#####} {pen.Matrix.F:0.#####}, "
+                + $"pressure curve ({pen.Pressure.Curve.X1:0.###},{pen.Pressure.Curve.Y1:0.###}) ({pen.Pressure.Curve.X2:0.###},{pen.Pressure.Curve.Y2:0.###}) range {pen.Pressure.RangeMin:0.###}..{pen.Pressure.RangeMax:0.###}, "
+                + $"mouse mode {pen.MouseMode} speed {pen.MouseSpeed:0.##}, keys filed under \"{snapshot.PadName ?? "nothing"}\""),
+        ];
+        string all = string.Join('\n', lines);
+        if (all == _recorded)
+            return;
+        var before = _recorded.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (i >= before.Length || before[i] != lines[i])
+                Log.Write("state", lines[i]);
+        }
+        _recorded = all;
+    }
+
+    partial void OnProblemChanged(string? value)
+    {
+        if (value != null)
+            Log.Write("problem", value);
     }
 
     void Show()
@@ -257,6 +324,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         Home.Update();
         WorkArea.Update();
+        Display.Update();
         Pen.Update();
         Settings.Update();
         FloatingMenu.Update();

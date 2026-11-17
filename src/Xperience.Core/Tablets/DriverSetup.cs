@@ -2,12 +2,43 @@ using System.Diagnostics;
 
 namespace Xperience.Core.Tablets;
 
-/// <summary>The choices the driver takes when it is loaded.</summary>
-/// <param name="UpperIsButton">The pen's upper button is a plain button instead of an eraser.</param>
-/// <param name="TiltOff">The pen reports no tilt.</param>
-public sealed record DriverOptions(bool UpperIsButton, bool TiltOff)
+/// <summary>What a pen button is to the driver itself, before the desktop sees anything of it.</summary>
+public enum PenButtonRole
 {
-    public static readonly DriverOptions Default = new(false, false);
+    /// <summary>A button, handed on for the desktop and Xperience to bind.</summary>
+    Button,
+
+    /// <summary>The pen is its eraser while the button is held.</summary>
+    Eraser,
+
+    /// <summary>Each press switches between pen and eraser, and it stays switched.</summary>
+    Toggle,
+}
+
+/// <summary>The choices the driver takes when it is loaded.</summary>
+/// <param name="Upper">What the pen's upper button is. Out of the box it erases while held.</param>
+/// <param name="Lower">What the pen's lower button is. Out of the box it is a button.</param>
+/// <param name="TiltOff">The pen reports no tilt.</param>
+public sealed record DriverOptions(PenButtonRole Upper, PenButtonRole Lower, bool TiltOff)
+{
+    public static readonly DriverOptions Default = new(PenButtonRole.Eraser, PenButtonRole.Button, false);
+
+    /// <summary>The word the driver knows a role by.</summary>
+    public static string Word(PenButtonRole role) => role switch
+    {
+        PenButtonRole.Eraser => "eraser",
+        PenButtonRole.Toggle => "toggle",
+        _ => "button",
+    };
+
+    /// <summary>The role a word stands for; a word the driver does not know is what the button is out of the box.</summary>
+    public static PenButtonRole Role(string? word, PenButtonRole outOfTheBox) => word switch
+    {
+        "button" => PenButtonRole.Button,
+        "eraser" => PenButtonRole.Eraser,
+        "toggle" => PenButtonRole.Toggle,
+        _ => outOfTheBox,
+    };
 }
 
 /// <summary>What is installed of the driver on this machine.</summary>
@@ -65,13 +96,26 @@ public sealed class DriverSetup
         try
         {
             string rules = File.Exists(RulesFile) ? File.ReadAllText(RulesFile) : "";
-            return new DriverOptions(rules.Contains("ENV{XPERIENCE_PEN_UPPER_BUTTON}=\"button\"", StringComparison.Ordinal),
-                rules.Contains("ENV{XPERIENCE_PEN_TILT}=\"off\"", StringComparison.Ordinal));
+            return new DriverOptions(
+                DriverOptions.Role(Property(rules, "XPERIENCE_PEN_UPPER_BUTTON"), DriverOptions.Default.Upper),
+                DriverOptions.Role(Property(rules, "XPERIENCE_PEN_LOWER_BUTTON"), DriverOptions.Default.Lower),
+                Property(rules, "XPERIENCE_PEN_TILT") == "off");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return DriverOptions.Default;
         }
+    }
+
+    /// <summary>The value the rules give a property, or null when they do not set it.</summary>
+    static string? Property(string rules, string name)
+    {
+        string lead = $"ENV{{{name}}}=\"";
+        int at = rules.IndexOf(lead, StringComparison.Ordinal);
+        if (at < 0)
+            return null;
+        int end = rules.IndexOf('"', at + lead.Length);
+        return end < 0 ? null : rules[(at + lead.Length)..end];
     }
 
     /// <summary>Installs or updates the driver with these options and loads it. Asks for administrator rights.</summary>
@@ -82,7 +126,7 @@ public sealed class DriverSetup
             return (false, "This build does not carry the driver.");
         if (!status.LoaderInstalled)
             return (false, $"The system's driver loader is missing. Install the package {LoaderPackage} first.");
-        return Outcome(await _elevate([_helperPath, "install", _objectPath, options.UpperIsButton ? "button" : "eraser", options.TiltOff ? "off" : "on"]).ConfigureAwait(false));
+        return Outcome(await _elevate([_helperPath, "install", _objectPath, DriverOptions.Word(options.Upper), options.TiltOff ? "off" : "on", DriverOptions.Word(options.Lower)]).ConfigureAwait(false));
     }
 
     /// <summary>Unloads the driver and takes its files away again. Asks for administrator rights.</summary>

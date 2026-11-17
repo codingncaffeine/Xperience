@@ -41,7 +41,16 @@ public static class KScreenLayout
                 if (width <= 0 || height <= 0)
                     continue;
                 var bounds = new RectD(Number(pos, "x", 0), Number(pos, "y", 0), Math.Ceiling(width), Math.Ceiling(height));
-                screens.Add(new ScreenInfo(name, (int)Number(output, "priority", 0), bounds, scale, rotation));
+                double widthMm = 0, heightMm = 0;
+                if (output.TryGetProperty("sizeMM", out var mm) && mm.ValueKind == JsonValueKind.Object)
+                    (widthMm, heightMm) = (Number(mm, "width", 0), Number(mm, "height", 0));
+                double brightness = Number(output, "brightness", -1);
+                screens.Add(new ScreenInfo(name, (int)Number(output, "priority", 0), bounds, scale, rotation)
+                {
+                    WidthMm = widthMm,
+                    HeightMm = heightMm,
+                    Brightness = brightness is >= 0 and <= 1 ? brightness : null,
+                });
             }
         }
         catch (JsonException)

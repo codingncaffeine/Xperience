@@ -26,7 +26,7 @@ public sealed class DemoCompositor : ICompositor
             new("DP-2", 1, new RectD(0, 967, 3440, 1440), 1, ScreenRotation.None),
             new("DP-3", 2, new RectD(3440, 967, 3440, 1440), 1, ScreenRotation.None),
             new("HDMI-A-2", 3, new RectD(6880, 0, 1920, 1080), 1, ScreenRotation.None),
-            new("DP-5", 4, new RectD(8800, 0, 1423, 800), 1.35, ScreenRotation.Half),
+            new("DP-5", 4, new RectD(8800, 0, 1423, 800), 1.35, ScreenRotation.Half) { WidthMm = 340, HeightMm = 192, Brightness = 0.8 },
         ];
         var pen = new PenState("event29", "XPPen Artist 16 3rd", ScreenTargetKind.OneScreen, "DP-2", RectD.Full, Flipped: true,
             MouseMode: false, PressureSettings.Default, CanFlip: true, CanSetScreenArea: true, CanSetPressureRange: true)
@@ -157,6 +157,19 @@ public sealed class DemoCompositor : ICompositor
     {
         lock (_gate)
             Hints.Add(text);
+        return Task.CompletedTask;
+    }
+
+    public Task SetScreenBrightnessAsync(string screenName, double share, CancellationToken cancel = default)
+    {
+        lock (_gate)
+        {
+            if (_screens.All(s => s.Name != screenName))
+                throw new IOException($"There is no screen called {screenName}.");
+            double kept = Math.Round(Math.Clamp(share, 0, 1), 2);
+            _screens = [.. _screens.Select(s => s.Name == screenName ? s with { Brightness = kept } : s)];
+            Writes.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"brightness {screenName} {kept:0.##}"));
+        }
         return Task.CompletedTask;
     }
 

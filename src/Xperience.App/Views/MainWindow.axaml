@@ -11,6 +11,7 @@
     <Window.DataTemplates>
         <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
         <DataTemplate DataType="vm:WorkAreaViewModel"><views:WorkAreaView /></DataTemplate>
+        <DataTemplate DataType="vm:DisplayViewModel"><views:DisplayView /></DataTemplate>
         <DataTemplate DataType="vm:PenViewModel"><views:PenView /></DataTemplate>
         <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
         <DataTemplate DataType="vm:FloatingMenuViewModel"><views:FloatingMenuView /></DataTemplate>
@@ -35,11 +36,8 @@
                 <TextBlock DockPanel.Dock="Bottom" Text="{Binding Version}" FontSize="11" HorizontalAlignment="Center"
                            Margin="0,0,0,14" Foreground="{DynamicResource XpTextFaint}" />
                 <StackPanel Spacing="10" Margin="0,18,0,0">
-                    <Border Width="44" Height="44" CornerRadius="13" Background="{DynamicResource XpAccent}" Margin="0,0,0,18"
-                            HorizontalAlignment="Center">
-                        <TextBlock Text="X" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource XpOnAccent}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Image Source="avares://xperience/Assets/icon.png" Width="48" Height="48" Margin="0,0,0,16" HorizontalAlignment="Center"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
                     <Button Classes="nav" Classes.active="{Binding IsTabletPage}" Command="{Binding ShowHomeCommand}" ToolTip.Tip="Tablet">
                         <PathIcon Data="{StaticResource IconTablet}" />
                     </Button>

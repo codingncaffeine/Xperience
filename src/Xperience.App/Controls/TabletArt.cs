@@ -20,6 +20,7 @@ public sealed class TabletArt : Control
     public static readonly StyledProperty<ICommand?> KeyCommandProperty = AvaloniaProperty.Register<TabletArt, ICommand?>(nameof(KeyCommand));
     public static readonly StyledProperty<ICommand?> DialCommandProperty = AvaloniaProperty.Register<TabletArt, ICommand?>(nameof(DialCommand));
     public static readonly StyledProperty<bool> DimmedProperty = AvaloniaProperty.Register<TabletArt, bool>(nameof(Dimmed));
+    public static readonly StyledProperty<bool> ShowLabelsProperty = AvaloniaProperty.Register<TabletArt, bool>(nameof(ShowLabels), true);
 
     /// <summary>One label where it is drawn: its text laid out, where it goes, and the line that leads to its control.</summary>
     sealed record Placed(FormattedText Text, Point At, Point LeaderFrom, Point LeaderTo, Rect Hit);
@@ -30,7 +31,7 @@ public sealed class TabletArt : Control
     Plan? _plan;
     int _hoverKey = -1, _hoverDial = -1;
 
-    static TabletArt() => AffectsRender<TabletArt>(ModelProperty, TurnedProperty, KeyLabelsProperty, DialLabelsProperty, DimmedProperty);
+    static TabletArt() => AffectsRender<TabletArt>(ModelProperty, TurnedProperty, KeyLabelsProperty, DialLabelsProperty, DimmedProperty, ShowLabelsProperty);
 
     public TabletArt() => ActualThemeVariantChanged += (_, _) =>
     {
@@ -53,6 +54,9 @@ public sealed class TabletArt : Control
     /// <summary>Draws the labels faint, for when the keys and dials are switched off.</summary>
     public bool Dimmed { get => GetValue(DimmedProperty); set => SetValue(DimmedProperty, value); }
 
+    /// <summary>False leaves the picture bare: the keys and dials can still be clicked, but nothing says what they do.</summary>
+    public bool ShowLabels { get => GetValue(ShowLabelsProperty); set => SetValue(ShowLabelsProperty, value); }
+
     /// <summary>Where each key and dial can be clicked: the control, its label and the line between them.</summary>
     public IReadOnlyList<Rect> KeyHits => [.. (Planned()?.Keys ?? []).Select(p => p.Hit)];
     public IReadOnlyList<Rect> DialHits => [.. (Planned()?.Dials ?? []).Select(p => p.Hit)];
@@ -61,7 +65,7 @@ public sealed class TabletArt : Control
     {
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty || change.Property == ModelProperty || change.Property == TurnedProperty ||
-            change.Property == KeyLabelsProperty || change.Property == DialLabelsProperty || change.Property == DimmedProperty)
+            change.Property == KeyLabelsProperty || change.Property == DialLabelsProperty || change.Property == DimmedProperty || change.Property == ShowLabelsProperty)
             _plan = null;
     }
 
@@ -101,7 +105,10 @@ public sealed class TabletArt : Control
                 (from, to) = (new Point(spots[i].Right + 3, y), new Point(layout.Surface.X + gap * 0.55, y));
                 at = new Point(layout.Surface.X + gap * 1.4, y - text.Height / 2);
             }
-            var hit = spots[i].Union(new Rect(at, new Size(text.Width, text.Height))).Inflate(new Thickness(4, Math.Max(3, (spots[i].Height - text.Height) / 4)));
+            // With the labels put away only the key itself is there to click.
+            var hit = ShowLabels
+                ? spots[i].Union(new Rect(at, new Size(text.Width, text.Height))).Inflate(new Thickness(4, Math.Max(3, (spots[i].Height - text.Height) / 4)))
+                : spots[i].Inflate(4);
             placed.Add(new Placed(text, at, from, to, hit));
         }
         return placed;
@@ -118,6 +125,8 @@ public sealed class TabletArt : Control
 
     void Draw(DrawingContext context, IReadOnlyList<Placed> labels, int hover)
     {
+        if (!ShowLabels)
+            return;
         var leader = Palette.Pen(this, "XpOnTabletFaint", 1);
         for (int i = 0; i < labels.Count; i++)
         {

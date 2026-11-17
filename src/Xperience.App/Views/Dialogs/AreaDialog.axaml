@@ -39,10 +39,16 @@
             <NumericUpDown Grid.Column="10" Value="{Binding Height}" Maximum="{Binding MaxHeight}" FormatString="{Binding Format}" Increment="{Binding Step}" />
             <TextBlock Grid.Column="12" Classes="field" Text="{Binding Unit}" Margin="0" />
         </Grid>
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,10,Auto" Margin="0,18,0,0">
-            <Button Classes="action" Content="Whole area" Command="{Binding UseWholeCommand}" />
-            <Button Grid.Column="2" Classes="action" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="96" />
-            <Button Grid.Column="4" Classes="action primary" Content="OK" Click="OnOk" MinWidth="96" />
-        </Grid>
+        <StackPanel Grid.Row="3" Spacing="10" Margin="0,14,0,0">
+            <TextBlock Classes="muted" FontSize="12.5" Text="{Binding CornersNote}" TextWrapping="Wrap"
+                       IsVisible="{Binding CornersNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="Auto,10,Auto,*,Auto,10,Auto">
+                <Button Classes="action" Content="Whole area" Command="{Binding UseWholeCommand}" />
+                <Button Grid.Column="2" Classes="action" Content="{Binding CornersLabel}" Command="{Binding PickCornersCommand}"
+                        IsEnabled="{Binding CanPickCorners}" />
+                <Button Grid.Column="4" Classes="action" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="96" />
+                <Button Grid.Column="6" Classes="action primary" Content="OK" Click="OnOk" MinWidth="96" />
+            </Grid>
+        </StackPanel>
     </Grid>
 </Window>

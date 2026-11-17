@@ -33,7 +33,8 @@ public sealed record Profile
     public static IReadOnlyList<IReadOnlyList<DialFunction>> DefaultDials { get; } =
     [
         [DialFunction.Of(DialKind.Zoom), DialFunction.Of(DialKind.Scroll), DialFunction.Of(DialKind.BrushSize), DialFunction.Of(DialKind.Rotate)],
-        [DialFunction.Of(DialKind.BrushSize), DialFunction.Of(DialKind.Zoom), DialFunction.Of(DialKind.Scroll), DialFunction.Of(DialKind.Rotate)],
+        // The second dial starts on brush size and goes round the other way, as the maker has it.
+        [DialFunction.Of(DialKind.BrushSize), DialFunction.Of(DialKind.Scroll), DialFunction.Of(DialKind.Zoom), DialFunction.Of(DialKind.Rotate)],
     ];
 
     public bool IsDefault => App.Length == 0;
@@ -200,6 +201,9 @@ public sealed record RunState
 
     public bool FloatingMenuPinned { get; init; }
 
+    /// <summary>True when the tablet's picture is shown bare, without what each key does.</summary>
+    public bool LabelsHidden { get; init; }
+
     /// <summary>
     /// The desktop bindings Xperience wrote, by their place in the desktop's list. A binding that is not in here
     /// was made by the user elsewhere, and is never removed to make room for "no binding".
@@ -232,6 +236,9 @@ public sealed class ConfigStore
     }
 
     public string ConfigPath => _configPath;
+
+    /// <summary>The folder for what the program keeps between runs that is not a setting: its state and its record.</summary>
+    public string StateFolder => Path.GetDirectoryName(_statePath) ?? "";
 
     /// <summary>The saved settings, or the defaults when there are none. A file that cannot be read is set aside, not overwritten.</summary>
     public XperienceConfig Load()

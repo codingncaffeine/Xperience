@@ -1,6 +1,7 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Xperience.Core.Desktop;
 using Xperience.Core.Settings;
 using Xperience.Core.Tablets;
 
@@ -22,6 +23,7 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
     [ObservableProperty] private IReadOnlyList<ProfileTab> _profiles = [];
     [ObservableProperty] private bool _canRemoveProfile;
     [ObservableProperty] private bool _keysDisabled;
+    [ObservableProperty] private bool _labelsShown = true;
 
     public MainViewModel Main => main;
     public TabletModel Model => main.Model;
@@ -34,8 +36,11 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
         Turned = main.Snapshot.Pen?.Flipped ?? false;
         HasTablet = main.Presence.Mode != DriveMode.Absent;
         KeysDisabled = config.KeysDisabled;
-        KeyLabels = [.. profile.Keys.Select(k => k.Label)];
-        DialLabels = [.. Enumerable.Range(0, Profile.DialCount).Select(d => profile.Dial(d, slots[d]).Label)];
+        LabelsShown = !main.Hub.State.LabelsHidden;
+        // The picture has the keys where they are on the tablet; the profile has them in the order they run as held.
+        var turn = main.Snapshot.Pen?.Turn ?? TabletTurn.None;
+        KeyLabels = [.. Enumerable.Range(0, Profile.KeyCount).Select(own => profile.Key(HeldOrder.Key(own, turn)).Label)];
+        DialLabels = [.. Enumerable.Range(0, Profile.DialCount).Select(own => HeldOrder.Dial(own, turn)).Select(d => profile.Dial(d, slots[d]).Label)];
         string active = main.Hub.ActiveProfile.App;
         Profiles = [.. config.Profiles.Select(p => new ProfileTab(p.Name, p.App, p.App.Equals(profile.App, StringComparison.OrdinalIgnoreCase),
             config.Profiles.Count > 1 && p.App.Equals(active, StringComparison.OrdinalIgnoreCase)))];
@@ -55,10 +60,20 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
     [RelayCommand]
     void SelectProfile(string app) => main.EditingApp = app;
 
-    /// <summary>Opens the assignment dialog for a key; keys count from 0.</summary>
+    /// <summary>Puts the labels on the tablet's picture away, or brings them back. It is remembered.</summary>
     [RelayCommand]
-    public async Task EditKey(int index)
+    public async Task ToggleLabels()
     {
+        bool hide = LabelsShown;
+        await main.Hub.RememberAsync(s => s with { LabelsHidden = hide });
+        Update();
+    }
+
+    /// <summary>Opens the assignment dialog for a key; keys count from 0, by the tablet's own numbers, as the picture has them.</summary>
+    [RelayCommand]
+    public async Task EditKey(int own)
+    {
+        int index = HeldOrder.Key(own, main.Snapshot.Pen?.Turn ?? TabletTurn.None);
         var profile = main.EditingProfile;
         var result = await main.Dialogs.EditActionAsync(new ActionRequest(
             string.Create(CultureInfo.InvariantCulture, $"Key {index + 1}"), profile.Key(index), Profile.DefaultKeys[index]));
@@ -66,10 +81,11 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
             await main.ChangeConfigAsync(c => c.Change(profile.App, p => p.WithKey(index, result)));
     }
 
-    /// <summary>Opens the dial dialog for a dial; dials count from 0.</summary>
+    /// <summary>Opens the dial dialog for a dial; dials count from 0, by the tablet's own numbers, as the picture has them.</summary>
     [RelayCommand]
-    public async Task EditDial(int index)
+    public async Task EditDial(int own)
     {
+        int index = HeldOrder.Dial(own, main.Snapshot.Pen?.Turn ?? TabletTurn.None);
         var profile = main.EditingProfile;
         int[] slots = [.. main.Hub.SlotsOf(profile)];
         var result = await main.Dialogs.EditDialAsync(string.Create(CultureInfo.InvariantCulture, $"Dial {index + 1}"),

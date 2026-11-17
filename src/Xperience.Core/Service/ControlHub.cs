@@ -13,6 +13,9 @@ namespace Xperience.Core.Service;
 public interface IHubUi
 {
     void ShowWindow();
+
+    /// <summary>Shows the window, or puts it away when it is the one in front: what a key set to show it does.</summary>
+    void ToggleWindow();
     void ToggleFloatingMenu();
 }
 
@@ -35,6 +38,8 @@ public sealed class ControlHub : IDisposable
     readonly Task _worker;
     readonly Lock _gate = new();
     readonly HashSet<string> _held = [];
+    // The controls whose two alternating shortcuts stand at the second one.
+    readonly HashSet<string> _onSecond = [];
 
     XperienceConfig _config;
     RunState _state;
@@ -55,6 +60,12 @@ public sealed class ControlHub : IDisposable
             compositor.ActiveAppChanged += OnActiveApp;
         _worker = Task.Run(WorkAsync);
     }
+
+    /// <summary>Where the record of what the tablet did and what was done about it goes.</summary>
+    public Diagnostics.ILog Log { get; init; } = Diagnostics.NoLog.Instance;
+
+    /// <summary>How the tablet is turned, as last read from the desktop: it decides which of its keys is the first as held.</summary>
+    public TabletTurn Turn { get; private set; }
 
     /// <summary>Who shows windows for the hub. Set once the windows exist.</summary>
     public IHubUi? Ui { get; set; }
@@ -140,16 +151,27 @@ public sealed class ControlHub : IDisposable
     /// <summary>Brings the bindings in step again, for when the tablet's devices changed.</summary>
     public Task SyncAsync() => Post(ApplyBindingsAsync);
 
-    /// <summary>A key of the tablet went down or up; keys count from 0.</summary>
-    public Task KeyAsync(int index, bool down) => Post(async () =>
+    /// <summary>A key of the tablet went down or up; keys count from 0, by the tablet's own numbers.</summary>
+    public Task KeyAsync(int own, bool down) => Post(async () =>
     {
         XperienceConfig config = Config;
-        if (config.KeysDisabled || index < 0 || index >= Profile.KeyCount)
+        if (own < 0 || own >= Profile.KeyCount)
             return;
+        int index = HeldOrder.Key(own, Turn);
+        if (config.KeysDisabled)
+        {
+            if (down)
+                Log.Write("key", string.Create(CultureInfo.InvariantCulture, $"key {index + 1} as held (the tablet's key {own + 1}) pressed: every key is switched off"));
+            return;
+        }
         var action = ActiveProfile.Key(index);
+        bool ours = Assignments.NeedsXperience(action);
+        if (down)
+            Log.Write("key", string.Create(CultureInfo.InvariantCulture,
+                $"key {index + 1} as held (the tablet's key {own + 1}) pressed: {action.Describe()}, carried out by {(ours ? "Xperience" : action.Kind == ActionKind.Disabled ? "nobody" : "the desktop")}"));
         if (down && config.Hints && action.Kind != ActionKind.Disabled && !IsDialSwitch(action))
             await HintAsync(action.Label).ConfigureAwait(false);
-        if (Assignments.NeedsXperience(action))
+        if (ours)
             await ExecuteAsync("key" + index.ToString(CultureInfo.InvariantCulture), action, down).ConfigureAwait(false);
     });
 
@@ -158,13 +180,17 @@ public sealed class ControlHub : IDisposable
     {
         var profile = ActiveProfile;
         var action = upper ? profile.PenUpper : profile.PenLower;
-        if (Assignments.NeedsXperience(action))
+        bool ours = Assignments.NeedsXperience(action);
+        if (down)
+            Log.Write("key", $"{(upper ? "upper" : "lower")} pen button pressed: {action.Describe()}, carried out by {(ours ? "Xperience" : "the desktop")}");
+        if (ours)
             await ExecuteAsync(upper ? "pen-upper" : "pen-lower", action, down).ConfigureAwait(false);
     });
 
     /// <summary>Carries an action out once, whoever would usually do it. The floating menu's buttons use this.</summary>
     public Task RunAsync(PadAction action) => Post(async () =>
     {
+        Log.Write("key", $"floating menu button: {action.Describe()}");
         await ExecuteAsync("menu", action, down: true).ConfigureAwait(false);
         await ExecuteAsync("menu", action, down: false).ConfigureAwait(false);
     });
@@ -205,6 +231,7 @@ public sealed class ControlHub : IDisposable
             catch (Exception e)
             {
                 // Whatever went wrong with one request, the next one still has to be served.
+                Log.Write("error", $"{e.GetType().Name}: {e.Message}");
                 Failed?.Invoke(e.Message);
             }
             finally
@@ -266,12 +293,17 @@ public sealed class ControlHub : IDisposable
         var snapshot = await _compositor.ReadAsync(_model).ConfigureAwait(false);
         var profile = ActiveProfile;
         var own = State.OwnBindings;
+        Turn = snapshot.Pen?.Turn ?? TabletTurn.None;
         // "No binding" is only enforced where Xperience put one: a pen button the user bound in the desktop's
         // own settings and never touched here stays as they bound it.
-        var desired = Assignments.Desired(Config, profile, SlotsOf(profile), snapshot.Devices).Where(d => d.Value.Length > 0 || own.Contains(d.Id)).ToList();
+        var desired = Assignments.Desired(Config, profile, SlotsOf(profile), snapshot.Devices, Turn).Where(d => d.Value.Length > 0 || own.Contains(d.Id)).ToList();
         var changes = Assignments.Changes(await _compositor.ReadRebindsAsync().ConfigureAwait(false), desired);
         if (changes.Count > 0)
+        {
+            foreach (var change in changes)
+                Log.Write("binding", $"{change.Group} {change.Key} on {change.Device}: {(change.Value.Length > 0 ? change.Value : "removed")}  (profile {(profile.IsDefault ? "for all applications" : profile.Name)})");
             await _compositor.WriteRebindsAsync(changes).ConfigureAwait(false);
+        }
         var owned = desired.Where(d => d.Value.Length > 0).Select(d => d.Id).ToHashSet();
         if (!owned.SetEquals(own))
             SetState(s => s with { OwnBindings = owned });
@@ -282,7 +314,7 @@ public sealed class ControlHub : IDisposable
     /// <summary>True when some assignment has Xperience itself type or click.</summary>
     static bool NeedsInjector(XperienceConfig config) =>
         config.Profiles.SelectMany(p => p.Keys.Append(p.PenLower).Append(p.PenUpper))
-            .Any(a => Assignments.NeedsXperience(a) && (a.Kind is ActionKind.Shortcut or ActionKind.Mouse || a is { Kind: ActionKind.Special, Special: SpecialAct.BrushEraser }));
+            .Any(a => Assignments.NeedsXperience(a) && (a.Kind is ActionKind.Shortcut or ActionKind.Mouse or ActionKind.Alternate || a is { Kind: ActionKind.Special, Special: SpecialAct.BrushEraser }));
 
     static bool IsDialSwitch(PadAction action) => action is { Kind: ActionKind.Special, Special: SpecialAct.SwitchDial1 or SpecialAct.SwitchDial2 };
 
@@ -313,6 +345,15 @@ public sealed class ControlHub : IDisposable
                         Tap(combo.Codes());
                         await Task.Delay(25).ConfigureAwait(false);
                     }
+                }
+                break;
+            case ActionKind.Alternate:
+                if (action.Combos is [var first, var second])
+                {
+                    // Held like a single shortcut; letting go hands the turn to the other one.
+                    Hold(source, (_onSecond.Contains(source) ? second : first).Codes(), down);
+                    if (!down && !_onSecond.Remove(source))
+                        _onSecond.Add(source);
                 }
                 break;
             case ActionKind.Mouse:
@@ -404,7 +445,7 @@ public sealed class ControlHub : IDisposable
         switch (act)
         {
             case SpecialAct.ShowXperience:
-                Ui?.ShowWindow();
+                Ui?.ToggleWindow();
                 break;
             case SpecialAct.FloatingMenu:
                 Ui?.ToggleFloatingMenu();
@@ -443,6 +484,7 @@ public sealed class ControlHub : IDisposable
         slots[dial] = Assignments.NextSlot(profile, dial, slots[dial]);
         SetState(s => s with { DialSlots = new Dictionary<string, int[]>(s.DialSlots) { [profile.App] = slots } });
         await ApplyBindingsAsync().ConfigureAwait(false);
+        Log.Write("key", string.Create(CultureInfo.InvariantCulture, $"dial {dial + 1} as held is now on: {profile.Dial(dial, slots[dial]).Label}"));
         if (Config.Hints)
             await HintAsync(string.Create(CultureInfo.InvariantCulture, $"Dial {dial + 1}: {profile.Dial(dial, slots[dial]).Label}")).ConfigureAwait(false);
         Changed?.Invoke();
@@ -455,14 +497,20 @@ public sealed class ControlHub : IDisposable
         var snapshot = await _compositor.ReadAsync(_model).ConfigureAwait(false);
         if (snapshot.Pen is not { } pen || snapshot.Screens.Count == 0)
             return;
+        // Each monitor in turn, then all of them together when there is more than one, then round again.
         var screens = snapshot.Screens.OrderBy(s => s.Number).ToList();
         int current = pen.TargetKind == ScreenTargetKind.OneScreen ? screens.FindIndex(s => s.Name == pen.TargetScreen) : -1;
-        var next = screens[(current + 1) % screens.Count];
-        await _compositor.SetTargetAsync(pen.Id, ScreenTargetKind.OneScreen, next.Name).ConfigureAwait(false);
+        bool all = screens.Count > 1 && pen.TargetKind == ScreenTargetKind.OneScreen && current == screens.Count - 1;
+        var next = screens[all ? 0 : (current + 1) % screens.Count];
+        if (all)
+            await _compositor.SetTargetAsync(pen.Id, ScreenTargetKind.AllScreens, "").ConfigureAwait(false);
+        else
+            await _compositor.SetTargetAsync(pen.Id, ScreenTargetKind.OneScreen, next.Name).ConfigureAwait(false);
         await _compositor.SetScreenAreaAsync(pen.Id, RectD.Full).ConfigureAwait(false);
         SetState(s => s with { AreaBeforePrecision = null });
+        Log.Write("key", all ? "switch monitor: the pen is on all monitors" : string.Create(CultureInfo.InvariantCulture, $"switch monitor: the pen is on monitor {next.Number} ({next.Name})"));
         if (Config.Hints)
-            await HintAsync(string.Create(CultureInfo.InvariantCulture, $"Pen on monitor {next.Number}")).ConfigureAwait(false);
+            await HintAsync(all ? "Pen on all monitors" : string.Create(CultureInfo.InvariantCulture, $"Pen on monitor {next.Number}")).ConfigureAwait(false);
         Changed?.Invoke();
     }
 

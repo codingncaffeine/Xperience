@@ -18,12 +18,15 @@ public class HubTests : IDisposable
 
     ConfigStore Store => new(Path.Combine(_folder, "config"), Path.Combine(_folder, "state"));
 
-    async Task<ControlHub> StartAsync(XperienceConfig? config = null, bool driven = true)
+    async Task<ControlHub> StartAsync(XperienceConfig? config = null, bool driven = true, bool turned = false)
     {
         if (config != null)
             Store.Save(config);
         if (driven)
             _desktop.SetPad(Bench.PadName);
+        // Upright, the tablet's own key numbers are the places as held; the turned case has tests of its own.
+        if (!turned)
+            _desktop.SetPen((await PenAsync()) with { Flipped = false });
         _hub = new ControlHub(_desktop, Store, _injector, TabletModel.Artist16Third, app =>
         {
             _launched.Add(app);
@@ -37,6 +40,7 @@ public class HubTests : IDisposable
     sealed class Ui(List<string> shown) : IHubUi
     {
         public void ShowWindow() => shown.Add("window");
+        public void ToggleWindow() => shown.Add("window");
         public void ToggleFloatingMenu() => shown.Add("menu");
     }
 
@@ -146,9 +150,10 @@ public class HubTests : IDisposable
         Assert.Equal(["Dial 1: Scroll"], _desktop.Hints);
         Assert.Equal([1, 0], hub.SlotsOf(hub.ActiveProfile));
 
+        // The second dial goes from brush size to scroll, the order the maker has it in.
         await hub.KeyAsync(4, true);
-        Assert.Equal("AxisKey,Ctrl+=,Ctrl+-,1", _desktop.Binding(Rebind.Dials, "1"));
-        Assert.Equal("Dial 2: Zoom", _desktop.Hints[^1]);
+        Assert.Equal("Scroll", _desktop.Binding(Rebind.Dials, "1"));
+        Assert.Equal("Dial 2: Scroll", _desktop.Hints[^1]);
 
         // A new start finds the dials where they were left.
         hub.Dispose();
@@ -263,7 +268,7 @@ public class HubTests : IDisposable
     public async Task Precision_mode_on_a_pen_button_narrows_the_area_around_the_pen_and_puts_it_back()
     {
         var config = XperienceConfig.Default.Completed().Change("", p => p with { PenLower = PadAction.Do(SpecialAct.PrecisionMode) });
-        var hub = await StartAsync(config, driven: false);
+        var hub = await StartAsync(config, driven: false, turned: true);
         // The pen is a quarter of the way across its surface; the desktop flips it, so on screen it is three quarters across.
         hub.PenPosition = () => (0.25, 0.5);
 
@@ -321,6 +326,32 @@ public class HubTests : IDisposable
     }
 
     [Fact]
+    public async Task Two_alternating_shortcuts_take_turns_each_held_while_the_key_is_held()
+    {
+        var action = PadAction.Alternating("B", "Ctrl+E");
+        Assert.Equal((ActionKind.Alternate, "B Ctrl+E", "B / Ctrl+E"), (action.Kind, action.Keys, action.Label));
+        Assert.Equal(PadAction.Off, PadAction.Alternating("B", ""));
+        Assert.Null(Assignments.Native(action));
+        Assert.True(Assignments.NeedsXperience(action));
+
+        var hub = await StartAsync(With(2, action));
+        Assert.Equal("Disabled", _desktop.Binding(Rebind.Keys, "2"));
+
+        await hub.KeyAsync(2, true);
+        Assert.Equal(["+48"], _injector.Typed);
+        await hub.KeyAsync(2, false);
+        await hub.KeyAsync(2, true);
+        await hub.KeyAsync(2, false);
+        await hub.KeyAsync(2, true);
+        await hub.KeyAsync(2, false);
+        Assert.Equal(["+48", "-48", "+29", "+18", "-18", "-29", "+48", "-48"], _injector.Typed);
+
+        // Saved and read back, it is still the same pair.
+        var kept = Store.Load().DefaultProfile.Key(2);
+        Assert.Equal((ActionKind.Alternate, "B Ctrl+E"), (kept.Kind, kept.Keys));
+    }
+
+    [Fact]
     public async Task Switch_monitor_moves_the_pen_to_the_next_one_whole()
     {
         var hub = await StartAsync(With(1, PadAction.Do(SpecialAct.SwitchMonitor)));
@@ -328,6 +359,22 @@ public class HubTests : IDisposable
         var pen = (await PenAsync());
         Assert.Equal((ScreenTargetKind.OneScreen, "DP-3", RectD.Full), (pen.TargetKind, pen.TargetScreen, pen.ScreenArea));
         Assert.Equal("Pen on monitor 2", _desktop.Hints[^1]);
+
+        // After the last monitor come all of them together, and then the first again.
+        await hub.KeyAsync(1, false);
+        foreach (string expected in (string[])["HDMI-A-2", "DP-5"])
+        {
+            await hub.KeyAsync(1, true);
+            await hub.KeyAsync(1, false);
+            Assert.Equal((ScreenTargetKind.OneScreen, expected), ((await PenAsync()).TargetKind, (await PenAsync()).TargetScreen));
+        }
+        await hub.KeyAsync(1, true);
+        await hub.KeyAsync(1, false);
+        Assert.Equal(ScreenTargetKind.AllScreens, (await PenAsync()).TargetKind);
+        Assert.Equal("Pen on all monitors", _desktop.Hints[^1]);
+        await hub.KeyAsync(1, true);
+        Assert.Equal((ScreenTargetKind.OneScreen, "DP-2"), ((await PenAsync()).TargetKind, (await PenAsync()).TargetScreen));
+        Assert.Equal("Pen on monitor 1", _desktop.Hints[^1]);
     }
 
     [Fact]

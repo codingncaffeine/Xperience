@@ -25,10 +25,10 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
 {
     static readonly TurnChoice[] AllTurns =
     [
-        new(TabletTurn.None, "0°  ·  keys on the left"),
-        new(TabletTurn.Quarter, "90°  ·  keys at the top"),
-        new(TabletTurn.Half, "180°  ·  keys on the right"),
-        new(TabletTurn.ThreeQuarter, "270°  ·  keys at the bottom"),
+        new(TabletTurn.None, "Rotation 0°  ·  keys on the left"),
+        new(TabletTurn.Quarter, "Rotation 90°  ·  keys at the top"),
+        new(TabletTurn.Half, "Rotation 180°  ·  keys on the right"),
+        new(TabletTurn.ThreeQuarter, "Rotation 270°  ·  keys at the bottom"),
     ];
 
     bool _loading;
@@ -236,8 +236,9 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
         if (pen.TargetKind == ScreenTargetKind.OneScreen && snapshot.Screen(pen.TargetScreen) is { } screen)
         {
             rotation = screen.Rotation;
-            request = new AreaRequest("Customize screen area", $"Drag the frame, or type its numbers, to pick the part of monitor {screen.Number} the pen reaches.",
-                AreaMath.ToSeen(pen.ScreenArea, rotation), screen.Bounds.Width, screen.Bounds.Height, "pixels", 0);
+            request = new AreaRequest("Customize screen area", $"Drag the frame, click its corners on the monitor, or type its numbers, to pick the part of monitor {screen.Number} the pen reaches.",
+                AreaMath.ToSeen(pen.ScreenArea, rotation), screen.Bounds.Width, screen.Bounds.Height, "pixels", 0)
+            { Corners = new CornerRequest(screen, WithPen: false) };
         }
         else
         {
@@ -246,7 +247,8 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
                 return;
             request = new AreaRequest("Customize screen area", "Drag the frame, or type its numbers, to pick the part of the desktop the pen reaches.",
                 pen.ScreenArea, all.Width, all.Height, "pixels", 0,
-                [.. snapshot.Screens.Select(s => new RectD((s.Bounds.X - all.X) / all.Width, (s.Bounds.Y - all.Y) / all.Height, s.Bounds.Width / all.Width, s.Bounds.Height / all.Height))]);
+                [.. snapshot.Screens.Select(s => new RectD((s.Bounds.X - all.X) / all.Width, (s.Bounds.Y - all.Y) / all.Height, s.Bounds.Width / all.Width, s.Bounds.Height / all.Height))])
+            { CornersUnavailable = "Picking the corners by clicking needs the pen mapped to one monitor." };
         }
         if (await main.Dialogs.EditAreaAsync(request) is { } picked)
         {
@@ -273,9 +275,18 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
             return;
         bool sideways = Turn is TabletTurn.Quarter or TabletTurn.ThreeQuarter;
         double wide = sideways ? Model.ActiveAreaMm.Height : Model.ActiveAreaMm.Width, high = sideways ? Model.ActiveAreaMm.Width : Model.ActiveAreaMm.Height;
+        var snapshot = main.Snapshot;
+        CornerRequest? corners = null;
+        string unavailable = "";
+        if (snapshot.Pen is not { TargetKind: ScreenTargetKind.OneScreen } pen || snapshot.Screen(pen.TargetScreen) is not { } screen)
+            unavailable = "Picking the corners with the pen needs the pen mapped to one monitor.";
+        else if (!main.CanReadPen)
+            unavailable = "Picking the corners with the pen reads the pen directly, and this account has no access to the pen's input device.";
+        else
+            corners = new CornerRequest(screen, WithPen: true, Flipped: Turn == TabletTurn.Half, QuarterPart: sideways ? Turn : TabletTurn.None);
         var picked = await main.Dialogs.EditAreaAsync(new AreaRequest("Customize active area",
-            "Drag the frame, or type its numbers, to pick the part of the tablet's surface the pen works on. That part reaches the whole screen area.",
-            ActiveArea, wide, high, "mm", 1, DarkSurface: true));
+            "Drag the frame, tap its corners with the pen, or type its numbers, to pick the part of the tablet's surface the pen works on. That part reaches the whole screen area.",
+            ActiveArea, wide, high, "mm", 1, DarkSurface: true) { Corners = corners, CornersUnavailable = unavailable });
         if (picked is { } area)
             await WriteGeometryAsync(Turn, main.Config.Geometry with { ActiveArea = AreaMath.Clamp(area) });
     }
@@ -298,20 +309,38 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
         if (result == null)
             return;
         var geometry = main.Config.Geometry;
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        main.Log.Write("calibrate", "taps " + string.Join(" ", result.Measured.Select(m => string.Create(culture, $"({m.X:0.0000},{m.Y:0.0000})")))
+            + " for crosses " + string.Join(" ", result.Wanted.Select(w => string.Create(culture, $"({w.X:0.0000},{w.Y:0.0000})"))));
         if (Calibration.Correction(result.Measured, result.Wanted, pen.Matrix.QuarterPart(), ActiveArea) is not { } correction || !Calibration.IsPlausible(correction))
         {
+            main.Log.Write("calibrate", "the taps did not line up with the crosses; nothing was changed");
             main.Problem = "The taps did not line up with the crosses, so nothing was changed. Calibrate with the window on the monitor the pen is mapped to.";
             return;
         }
+        main.Log.Write("calibrate", "correction " + string.Join(" ", correction.ToList().Select(v => v.ToString("0.#####", culture))));
         await WriteGeometryAsync(Turn, geometry with { ActiveArea = ActiveArea, Correction = correction.ToList() });
     }
 
     [RelayCommand]
     Task ResetCalibration() => WriteGeometryAsync(Turn, main.Config.Geometry with { ActiveArea = ActiveArea, Correction = PenMatrix.Identity.ToList() });
 
+    /// <summary>
+    /// Puts the areas back: the whole screen, the whole of the tablet's surface, no calibration. The monitor
+    /// the pen is on and the way the tablet is turned are where the pen belongs on this desk, and stay.
+    /// </summary>
     [RelayCommand]
-    Task Identify() => main.IdentifyScreensAsync();
+    public async Task ResetAreas()
+    {
+        if (main.Snapshot.Pen is not { } pen || !await main.Dialogs.ConfirmAsync("Default work area",
+            "Use the whole screen and the whole of the tablet's surface again, and drop the calibration? The monitor the pen is on and the tablet's rotation stay as they are.", "Restore"))
+            return;
+        await main.Hub.ForgetPrecisionAsync();
+        if (pen.CanSetScreenArea && !pen.ScreenArea.IsCloseTo(RectD.Full))
+            await main.WriteAsync((desktop, id) => desktop.SetScreenAreaAsync(id, RectD.Full));
+        await WriteGeometryAsync(Turn, new PenGeometry());
+    }
 
     [RelayCommand]
-    Task DisplaySettings() => main.Desktop is { } desktop ? Task.Run(() => desktop.OpenDisplaySettingsAsync()) : Task.CompletedTask;
+    Task Identify() => main.IdentifyScreensAsync();
 }
