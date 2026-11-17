@@ -175,6 +175,19 @@ check "a tablet that does not come back as a pen is exit code 6" '[ "$code" = 6 
 check "it says the driver was taken out" 'echo "$said" | grep -q "did not come back as a pen"'
 check "and it was: no rules, no driver" '[ ! -e "$rules" ] && [ ! -e "$fake/etc/udev-hid-bpf/$name" ]'
 
+# With no tablet plugged in, installing sets everything up for when one is, and checks no pen.
+mkdir -p "$work/unplugged"
+mv "$fake/sys/bus/hid/devices/0003:28BD:097E.0007" "$fake/sys/bus/hid/devices/0003:28BD:097E.0009" "$work/unplugged/"
+: > "$work/calls"
+set +e
+said=$(run install "$work/$name" eraser on button none 1 2>&1)
+code=$?
+set -e
+mv "$work/unplugged/"* "$fake/sys/bus/hid/devices/"
+check "an install with no tablet plugged in succeeds" '[ "$code" = 0 ]'
+check "and leaves the driver and its rules in place" '[ -e "$rules" ] && [ -f "$fake/etc/udev-hid-bpf/$name" ]'
+check "and loads nothing" '! grep -q "^udev-hid-bpf add" "$work/calls"'
+
 # Without the loader. These runs see nothing of this machine's own programs but the few plain tools the helper
 # uses, so that no real package manager can be reached from a test. The stand-in loader is kept aside for the
 # stand-in package manager to install.

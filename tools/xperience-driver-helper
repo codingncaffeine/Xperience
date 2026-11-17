@@ -187,7 +187,9 @@ RULES
 	reload_rules
 	give_back_interfaces
 
+	loaded=0
 	for device in $(devices); do
+		loaded=1
 		if ! udev-hid-bpf add --replace \
 			--property "XPERIENCE_PEN_UPPER_BUTTON=$upper" --property "XPERIENCE_PEN_LOWER_BUTTON=$lower" \
 			--property "XPERIENCE_PEN_TILT=$tilt" --property "XPERIENCE_PEN_SWITCH_KEYS=$keys" --property "XPERIENCE_PEN_SMOOTHING=$smoothing" \
@@ -203,8 +205,9 @@ RULES
 	rm -f "$log"
 
 	# Loaded is not yet working: the tablet has to be there as a pen again. When it is not, the driver is
-	# taken out, so nobody is left with a tablet that does nothing.
-	if ! pen_is_back; then
+	# taken out, so nobody is left with a tablet that does nothing. With no tablet plugged in there is nothing
+	# to check; the rules load the driver when one is.
+	if [ "$loaded" = 1 ] && ! pen_is_back; then
 		take_out
 		fail "The driver loaded, but the tablet did not come back as a pen, so the driver was taken out again. Unplug the tablet and plug it back in; it then works as it did before." 6
 	fi
