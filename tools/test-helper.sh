@@ -4,9 +4,21 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-helper="$root/tools/xperience-driver-helper"
 work="$(mktemp -d)"
 trap 'rm -rf "${work:?}"' EXIT
+# The helper runs from a folder of its own with a stand-in probe beside it, as it comes in a bundle. The probe
+# answers as the Artist 16 3rd does, with one line of a form the helper must not pass on.
+mkdir -p "$work/bundle"
+helper="$work/bundle/xperience-driver-helper"
+cp "$root/tools/xperience-driver-helper" "$helper"
+cat > "$work/bundle/xperience-probe" <<'STUB'
+#!/bin/sh
+echo XPERIENCE_TABLET_X_MAX=68199
+echo XPERIENCE_TABLET_PRESSURE_MAX=16383
+echo 'XPERIENCE_TABLET_KEYS=8 --property OTHER=1'
+echo XPERIENCE_TABLET_PROBE=ok
+STUB
+chmod +x "$work/bundle/xperience-probe"
 
 name="0010-XPPen__Artist16_3rd.bpf.o"
 fake="$work/fake-root"
@@ -95,6 +107,12 @@ check "the driver is loaded for each of the tablet's interfaces with the options
 	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 --property XPERIENCE_PEN_SMOOTHING=4 .*097E" "$work/calls")" = 2 ]'
 check "the interface no driver held is given back to the kernel, and only that one" '[ "$(cat "$fake/sys/bus/usb/drivers/usbhid/bind")" = "1-2:1.2" ]'
 check "another device is left alone" '! grep -q "046D" "$work/calls"'
+check "the probe is installed where only root can change it" 'cmp -s "$fake/usr/local/libexec/xperience-probe" "$work/bundle/xperience-probe" && [ -x "$fake/usr/local/libexec/xperience-probe" ]'
+check "the rules run the installed probe when a HID device of the maker appears" \
+	'grep -qx "SUBSYSTEM==\"hid\", ACTION!=\"remove\", ATTRS{idVendor}==\"28bd\", IMPORT{program}=\"/usr/local/libexec/xperience-probe \\\$sys\\\$devpath\"" "$rules"'
+check "the driver is loaded with what the tablet said it is" \
+	'[ "$(grep -c -- "--property XPERIENCE_PEN_SMOOTHING=4 --property XPERIENCE_TABLET_X_MAX=68199 --property XPERIENCE_TABLET_PRESSURE_MAX=16383 --property XPERIENCE_TABLET_PROBE=ok .*097E" "$work/calls")" = 2 ]'
+check "a probe line of another form is not passed on" '! grep -q "OTHER=1\|TABLET_KEYS" "$work/calls"'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
 
@@ -112,6 +130,7 @@ check "the tablet is told only after the driver has let go of it" \
 check "remove takes the rules away" '[ ! -e "$rules" ]'
 check "remove takes the driver object away" '[ ! -e "$fake/etc/udev-hid-bpf/$name" ]'
 check "remove takes the loader rule for the driver away" '[ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
+check "remove takes the probe away" '[ ! -e "$fake/usr/local/libexec/xperience-probe" ]'
 
 # What must be refused, and that a refusal changes nothing.
 : > "$work/calls"
@@ -135,6 +154,9 @@ refused "a smoothing too wide" install "$work/$name" eraser on button none 9
 refused "too few arguments" install "$work/$name"
 refused "an unknown verb" purge
 refused "no verb"
+mv "$work/bundle/xperience-probe" "$work/probe-aside"
+refused "an install without the probe beside the helper" install "$work/$name" eraser on button none 1
+mv "$work/probe-aside" "$work/bundle/xperience-probe"
 check "a refusal calls nothing and writes nothing" '[ ! -s "$work/calls" ] && [ ! -e "$rules" ]'
 
 # The loader will not take the object: nothing is changed, and what it said is passed on.
@@ -185,7 +207,7 @@ code=$?
 set -e
 mv "$work/unplugged/"* "$fake/sys/bus/hid/devices/"
 check "an install with no tablet plugged in succeeds" '[ "$code" = 0 ]'
-check "and leaves the driver and its rules in place" '[ -e "$rules" ] && [ -f "$fake/etc/udev-hid-bpf/$name" ]'
+check "and leaves the driver, its rules and the probe in place" '[ -e "$rules" ] && [ -f "$fake/etc/udev-hid-bpf/$name" ] && [ -x "$fake/usr/local/libexec/xperience-probe" ]'
 check "and loads nothing" '! grep -q "^udev-hid-bpf add" "$work/calls"'
 
 # Without the loader. These runs see nothing of this machine's own programs but the few plain tools the helper

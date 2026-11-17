@@ -52,6 +52,19 @@ def decode(descriptor, data):
     return report, values
 
 
+def expected(kind, wanted):
+    """The decoded fields a vector's "pad" or "pen" expectation stands for."""
+    if kind == "pad":
+        return {"keys": [int(k) for k in wanted["keys"].split(",") if k],
+                "Wheel": int(wanted["wheel"]), "AC Pan": int(wanted["pan"]),
+                "Barrel Switch": 0, "X": 0, "Y": 0}
+    return {"keys": [], "In Range": int(wanted["in"]), "Tip Switch": int(wanted["tip"]),
+            "Barrel Switch": int(wanted["b1"]), "Secondary Barrel Switch": int(wanted["b2"]),
+            "Invert": int(wanted["inv"]), "Eraser": int(wanted["era"]),
+            "X": int(wanted["x"]), "Y": int(wanted["y"]), "Tip Pressure": int(wanted["p"]),
+            "X Tilt": int(wanted["tx"]), "Y Tilt": int(wanted["ty"])}
+
+
 def judge(output, vectors, original_vendor):
     """Returns a list of faults; empty means the driver's output is right."""
     faults = []
@@ -148,16 +161,7 @@ def judge(output, vectors, original_vendor):
         except Exception as error:  # a report the descriptor cannot explain is a fault, not a crash
             faults.append(f"{name}: cannot be decoded ({error})")
             continue
-        if kind == "pad":
-            want = {"keys": [int(k) for k in wanted["keys"].split(",") if k],
-                    "Wheel": int(wanted["wheel"]), "AC Pan": int(wanted["pan"]),
-                    "Barrel Switch": 0, "X": 0, "Y": 0}
-        else:
-            want = {"keys": [], "In Range": int(wanted["in"]), "Tip Switch": int(wanted["tip"]),
-                    "Barrel Switch": int(wanted["b1"]), "Secondary Barrel Switch": int(wanted["b2"]),
-                    "Invert": int(wanted["inv"]), "Eraser": int(wanted["era"]),
-                    "X": int(wanted["x"]), "Y": int(wanted["y"]), "Tip Pressure": int(wanted["p"]),
-                    "X Tilt": int(wanted["tx"]), "Y Tilt": int(wanted["ty"])}
+        want = expected(kind, wanted)
         if got != want:
             diff = {k: (got.get(k), v) for k, v in want.items() if got.get(k) != v}
             faults.append(f"{name}: got/want {diff}")

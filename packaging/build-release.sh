@@ -40,6 +40,8 @@ for p in src/Xperience.App src/Xperience.Core; do rm -rf "${p:?}/bin" "${p:?}/ob
 echo "── driver"
 tools/build-driver.sh > /dev/null
 [[ -s bin/$DRIVER ]] || { echo "!! The driver object was not built." >&2; exit 3; }
+# One probe goes into both bundles, so it must not depend on this machine's C library.
+readelf -d bin/xperience-probe 2> /dev/null | grep -q NEEDED && { echo "!! bin/xperience-probe is not static: install the static C library and build again." >&2; exit 3; }
 
 publish() { # rid dir
     echo "── publish $1"
@@ -53,6 +55,7 @@ payload() { # dir
     [[ -s "$1/xperience.png" ]] || { echo "!! The icon is missing from $1." >&2; exit 3; }
     cp "bin/$DRIVER" "$1/"
     install -m 755 tools/xperience-driver-helper "$1/xperience-driver-helper"
+    install -m 755 bin/xperience-probe "$1/xperience-probe"
     cp LICENSE packaging/README.txt "$1/"
     mkdir -p "$1/LICENSES" && cp LICENSES/* "$1/LICENSES/"
     cp "packaging/$ID.desktop" "$1/"

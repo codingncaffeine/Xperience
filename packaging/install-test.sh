@@ -26,7 +26,7 @@ done
 SMOKE='mkdir -p /tmp/x/r && chmod 700 /tmp/x/r && export XDG_DATA_HOME=/tmp/x/d XDG_CONFIG_HOME=/tmp/x/c XDG_STATE_HOME=/tmp/x/s XDG_RUNTIME_DIR=/tmp/x/r
 Xvfb :5 -screen 0 1400x900x24 >/dev/null 2>&1 & sleep 2; export DISPLAY=:5
 [ "$($APP --version)" = "Xperience '"$VER"'" ] && echo VERSION-OK || echo VERSION-WRONG
-[ -s "$LIB/0010-XPPen__Artist16_3rd.bpf.o" ] && [ -x "$LIB/xperience-driver-helper" ] && echo DRIVER-OK || echo DRIVER-MISSING
+[ -s "$LIB/0010-XPPen__Artist16_3rd.bpf.o" ] && [ -x "$LIB/xperience-driver-helper" ] && [ -x "$LIB/xperience-probe" ] && echo DRIVER-OK || echo DRIVER-MISSING
 ($APP > /tmp/app.log 2>&1 &); sleep 12
 if xprop -name Xperience WM_CLASS 2>/dev/null | grep -q "\"xperience\", \"xperience\""; then echo WINDOW-OK; else tail -20 /tmp/app.log; echo WINDOW-MISSING; fi
 xprop -name Xperience _NET_WM_ICON 2>/dev/null | grep -q "Icon (" && echo ICON-OK || echo ICON-MISSING

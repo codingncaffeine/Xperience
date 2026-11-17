@@ -70,8 +70,9 @@ Languages other than English, and tablets other than the Artist 16 3rd.
 
 ```
 tools/build.sh           # everything, into bin/; bin/xperience opens the settings window
-tools/build-driver.sh    # the driver alone; needs clang and the libbpf headers
+tools/build-driver.sh    # the driver and its probe alone; needs clang, a C compiler and the libbpf headers
 tools/test.sh            # every test: the driver's, the install helper's and the app's; no root, no tablet
+tools/rig/run.sh         # the driver on a virtual tablet in QEMU (part of tools/test.sh where KVM is present)
 tools/alpine-build.sh    # the same build and tests on Alpine (musl), in a container
 ```
 
