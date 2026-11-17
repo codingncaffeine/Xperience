@@ -49,6 +49,18 @@ upper-eraser-named     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0
 upper-wrong-case       | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
 @upper-button unset
 
+# Tilt switched off: the pen reports none, however it leans.
+@tilt off
+tilt-off               | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+tilt-off-full-lean     | 02a1670ad795ff1fc43c01000001 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=68199 y=38359 p=16383 tx=0 ty=0
+
+# Anything but "off" leaves tilt on, so a typo cannot change the pen.
+@tilt on
+tilt-on-named          | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=20 ty=-20
+@tilt Off
+tilt-wrong-case        | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=20 ty=-20
+@tilt unset
+
 # Status reports and reports of other kinds are not input and must not be touched.
 status-f2              | 02f2010000000000000000000000 | same
 status-f6-stylus-id    | 02f6aabbccdd0000000000000000 | same

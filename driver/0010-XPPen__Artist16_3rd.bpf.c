@@ -111,6 +111,13 @@ HID_BPF_CONFIG(
  */
 char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
 
+/*
+ * Whether the pen reports how it leans. "off" has it report no tilt at all,
+ * for when brushes that follow the tilt are not wanted. Anything else, or
+ * nothing, leaves tilt as the tablet reports it.
+ */
+char UDEV_PROP_XPERIENCE_PEN_TILT[16];
+
 static const __u8 disabled_rdesc[] = {
 	/* Same report length as before, so the reports still fit. */
 	FixedSizeVendorReport(RAW_REPORT_LENGTH)
@@ -325,6 +332,12 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 
 		if (data[13] & 0x01)
 			pressure_high |= 0x20;
+
+		if (UDEV_PROP_XPERIENCE_PEN_TILT[0] == 'o' &&
+		    UDEV_PROP_XPERIENCE_PEN_TILT[1] == 'f') {
+			tilt_x = 0;
+			tilt_y = 0;
+		}
 
 		if (kind != RAW_KIND_PEN_GONE) {
 			__u8 bits = kind & PEN_STATE_RAW_BITS;

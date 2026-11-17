@@ -12,6 +12,7 @@ int probe(struct hid_bpf_probe_args *ctx);
 int xppen_artist16_3rd_rdesc_fixup(struct hid_bpf_ctx *hctx);
 int xppen_artist16_3rd_device_event(struct hid_bpf_ctx *hctx);
 extern char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
+extern char UDEV_PROP_XPERIENCE_PEN_TILT[16];
 
 static struct hid_device device;
 static struct hid_bpf_ctx context;
@@ -91,12 +92,22 @@ int run_device_event(unsigned char *data, unsigned long capacity, int size)
 	return xppen_artist16_3rd_device_event(&context);
 }
 
-/* Plays udev-hid-bpf filling in the property at load time; an empty value leaves it unset. */
-void set_pen_upper_button(const char *value)
+/* Plays udev-hid-bpf filling in a property at load time; an empty value leaves it unset. */
+static void set_property(char *property, unsigned int size, const char *value)
 {
 	unsigned int i = 0;
 
-	__builtin_memset(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON, 0, sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON));
-	for (; value[i] && i < sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON) - 1; i++)
-		UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[i] = value[i];
+	__builtin_memset(property, 0, size);
+	for (; value[i] && i < size - 1; i++)
+		property[i] = value[i];
+}
+
+void set_pen_upper_button(const char *value)
+{
+	set_property(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON, sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON), value);
+}
+
+void set_pen_tilt(const char *value)
+{
+	set_property(UDEV_PROP_XPERIENCE_PEN_TILT, sizeof(UDEV_PROP_XPERIENCE_PEN_TILT), value);
 }
