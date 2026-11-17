@@ -90,6 +90,25 @@ lower-toggle-back      | 02a2102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0
 lower-toggle-upper     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
 @lower-button unset
 
+# Tablet keys as the pen/eraser switch: the third and the sixth here. A press switches, holding does not
+# switch again, another key does nothing to it, and the key itself is still reported.
+@switch-keys 36
+switch-key-before      | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+switch-key-press       | 02f0040000000000000000000000 | pad keys=3 wheel=0 pan=0
+switch-key-erasing     | 02a1102700100010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=1 era=1 x=10000 y=4096 p=4096 tx=0 ty=0
+switch-key-held        | 02f0040000000000000000000000 | pad keys=3 wheel=0 pan=0
+switch-key-still       | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+switch-key-and-another | 02f0050000000000000000000000 | pad keys=1,3 wheel=0 pan=0
+switch-key-unmoved     | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+switch-key-let-go      | 02f0000000000000000000000000 | pad keys= wheel=0 pan=0
+switch-key-kept        | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+switch-key-the-sixth   | 02f0200000000000000000000000 | pad keys=6 wheel=0 pan=0
+switch-key-back        | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+@switch-keys unset
+# A key that is not named switches nothing.
+no-switch-key-press    | 02f0040000000000000000000000 | pad keys=3 wheel=0 pan=0
+no-switch-key-pen      | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+
 # Tilt switched off: the pen reports none, however it leans.
 @tilt off
 tilt-off               | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0

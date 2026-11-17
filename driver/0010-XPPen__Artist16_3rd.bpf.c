@@ -116,6 +116,14 @@ HID_BPF_CONFIG(
 char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
 char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
 
+/*
+ * The tablet's keys that switch between pen and eraser when pressed, the way a
+ * "toggle" pen button does: digits 1 to 8, counted from the top with the keys
+ * on the left, so "3" is the third key and "36" the third and the sixth.
+ * Unset, no key does. The key is still reported as a key.
+ */
+char UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS[16];
+
 #define ROLE_BUTTON 0
 #define ROLE_ERASER 1
 #define ROLE_TOGGLE 2
@@ -129,6 +137,23 @@ char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
  */
 __u8 pen_buttons_held;
 __u8 pen_switched_to_eraser;
+/* The tablet's keys as last seen, for the same reason. */
+__u8 pad_keys_held;
+
+/* The keys named by XPERIENCE_PEN_SWITCH_KEYS, one bit each, as the tablet reports them. */
+static __always_inline __u8 switch_keys(void)
+{
+	__u8 mask = 0;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		char digit = UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS[i];
+
+		if (digit >= '1' && digit <= '8')
+			mask |= 1 << (digit - '1');
+	}
+	return mask;
+}
 
 /*
  * Whether the pen reports how it leans. "off" has it report no tilt at all,
@@ -328,6 +353,11 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 
 	if (kind == RAW_KIND_PAD) {
 		__u8 dials = data[7];
+		__u8 keys = data[2];
+
+		if (keys & ~pad_keys_held & switch_keys())
+			pen_switched_to_eraser = !pen_switched_to_eraser;
+		pad_keys_held = keys;
 
 		data[0] = PAD_REPORT_ID;
 		/* The placeholders stay still whatever the tablet sends. */
@@ -390,8 +420,8 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 					pen_switched_to_eraser = !pen_switched_to_eraser;
 				bits &= ~RAW_PEN_LOWER_BUTTON;
 			}
-			/* With no button set to toggle, nothing can switch back, so nothing stays switched. */
-			if (upper != ROLE_TOGGLE && lower != ROLE_TOGGLE)
+			/* With nothing set to switch, nothing can switch back, so nothing stays switched. */
+			if (upper != ROLE_TOGGLE && lower != ROLE_TOGGLE && !switch_keys())
 				pen_switched_to_eraser = 0;
 			if (erase || pen_switched_to_eraser)
 				bits |= RAW_PEN_ERASER;
