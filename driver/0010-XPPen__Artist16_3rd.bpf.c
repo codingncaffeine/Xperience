@@ -74,6 +74,7 @@ HID_BPF_CONFIG(
 #define RAW_KIND_PEN_GONE 0xc0
 
 #define RAW_PEN_TIP 0x01
+#define RAW_PEN_LOWER_BUTTON 0x02
 #define RAW_PEN_UPPER_BUTTON 0x04
 #define RAW_PEN_ERASER 0x08
 
@@ -103,13 +104,31 @@ HID_BPF_CONFIG(
 #define PEN_HEIGHT 1918
 
 /*
- * What the upper pen button does. Left to itself the tablet reports it as an
- * eraser, and drawing programs switch to their eraser while it is held, so
- * that is what an unset property keeps. "button" makes it a second barrel
- * button instead. udev-hid-bpf fills this in from the udev property of the
- * same name when it loads the program.
+ * What each pen button does in this program. "button" hands it on as a barrel
+ * button for the desktop to bind. "eraser" turns the pen into its eraser while
+ * the button is held, and "toggle" switches between pen and eraser each time
+ * the button is pressed, staying switched until it is pressed again. Unset, or
+ * set to anything else, the upper button is an eraser and the lower one a
+ * button, which is how the tablet has them out of the box. udev-hid-bpf fills
+ * these in from the udev properties of the same names when it loads the
+ * program.
  */
 char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
+char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
+
+#define ROLE_BUTTON 0
+#define ROLE_ERASER 1
+#define ROLE_TOGGLE 2
+
+/*
+ * What the program remembers between reports; a reload starts both at zero.
+ * The pen buttons as last seen, to tell a press from a button still held, and
+ * whether a "toggle" button has the pen switched to its eraser. Both outlast
+ * the pen leaving: a button held while the pen is lifted away and brought
+ * back was pressed once.
+ */
+__u8 pen_buttons_held;
+__u8 pen_switched_to_eraser;
 
 /*
  * Whether the pen reports how it leans. "off" has it report no tilt at all,
@@ -341,12 +360,41 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 
 		if (kind != RAW_KIND_PEN_GONE) {
 			__u8 bits = kind & PEN_STATE_RAW_BITS;
+			__u8 held = bits & (RAW_PEN_LOWER_BUTTON | RAW_PEN_UPPER_BUTTON);
+			__u8 pressed = held & ~pen_buttons_held;
+			__u8 upper = ROLE_ERASER, lower = ROLE_BUTTON;
+			__u8 erase = 0;
 
-			if ((bits & RAW_PEN_UPPER_BUTTON) &&
-			    UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[0] != 'b') {
+			pen_buttons_held = held;
+
+			if (UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[0] == 'b')
+				upper = ROLE_BUTTON;
+			else if (UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[0] == 't')
+				upper = ROLE_TOGGLE;
+			if (UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[0] == 'e')
+				lower = ROLE_ERASER;
+			else if (UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[0] == 't')
+				lower = ROLE_TOGGLE;
+
+			if (upper != ROLE_BUTTON) {
+				if (upper == ROLE_ERASER && (bits & RAW_PEN_UPPER_BUTTON))
+					erase = 1;
+				if (upper == ROLE_TOGGLE && (pressed & RAW_PEN_UPPER_BUTTON))
+					pen_switched_to_eraser = !pen_switched_to_eraser;
 				bits &= ~RAW_PEN_UPPER_BUTTON;
-				bits |= RAW_PEN_ERASER;
 			}
+			if (lower != ROLE_BUTTON) {
+				if (lower == ROLE_ERASER && (bits & RAW_PEN_LOWER_BUTTON))
+					erase = 1;
+				if (lower == ROLE_TOGGLE && (pressed & RAW_PEN_LOWER_BUTTON))
+					pen_switched_to_eraser = !pen_switched_to_eraser;
+				bits &= ~RAW_PEN_LOWER_BUTTON;
+			}
+			/* With no button set to toggle, nothing can switch back, so nothing stays switched. */
+			if (upper != ROLE_TOGGLE && lower != ROLE_TOGGLE)
+				pen_switched_to_eraser = 0;
+			if (erase || pen_switched_to_eraser)
+				bits |= RAW_PEN_ERASER;
 
 			state = bits | PEN_STATE_IN_RANGE;
 			/*

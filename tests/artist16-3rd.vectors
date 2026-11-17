@@ -49,6 +49,47 @@ upper-eraser-named     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0
 upper-wrong-case       | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
 @upper-button unset
 
+# The lower button as an eraser while held: the pen is its eraser, and the button is no button.
+@lower-button eraser
+lower-as-eraser        | 02a2102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+lower-as-eraser-down   | 02a3102700100010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=1 era=1 x=10000 y=4096 p=4096 tx=0 ty=0
+lower-eraser-let-go    | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+# Anything but "eraser" or "toggle" keeps it a button, so a typo cannot change the pen.
+@lower-button Eraser
+lower-wrong-case       | 02a2102700100000000000000000 | pen in=1 tip=0 b1=1 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+@lower-button unset
+
+# The upper button as a switch: each press goes from pen to eraser or back, and holding it changes nothing more.
+@upper-button toggle
+toggle-before          | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-press           | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-still-held      | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-let-go          | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-erasing         | 02a1102700100010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=1 era=1 x=10000 y=4096 p=4096 tx=0 ty=0
+toggle-lower-is-button | 02a2102700100000000000000000 | pen in=1 tip=0 b1=1 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+# It stays switched while the pen is away.
+toggle-pen-gone        | 02c0102700100000000000000000 | pen in=0 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-back-in-range   | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-press-again     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-let-go-again    | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-drawing         | 02a1102700100010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=4096 tx=0 ty=0
+# A program loaded afresh starts as the pen, whatever it was before.
+toggle-press-third     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+# Held while the pen is lifted away and brought back, the button was pressed once, so it switched once.
+toggle-gone-held       | 02c0102700100000000000000000 | pen in=0 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+toggle-back-held       | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+@fresh
+toggle-after-reload    | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+@upper-button unset
+
+# The lower button as the switch, with the upper one erasing while held.
+@lower-button toggle
+lower-toggle-press     | 02a2102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+lower-toggle-let-go    | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+lower-toggle-back      | 02a2102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+lower-toggle-upper     | 02a4102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=1 era=0 x=10000 y=4096 p=0 tx=0 ty=0
+@lower-button unset
+
 # Tilt switched off: the pen reports none, however it leans.
 @tilt off
 tilt-off               | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0

@@ -15,6 +15,8 @@ int run_probe(unsigned int rdesc_size, const unsigned char **output, int *output
 int run_rdesc_fixup(unsigned char *data, unsigned long capacity, int size, const char **name);
 int run_device_event(unsigned char *data, unsigned long capacity, int size);
 void set_pen_upper_button(const char *value);
+void set_pen_lower_button(const char *value);
+void forget_pen_state(void);
 void set_pen_tilt(const char *value);
 
 #define DESCRIPTOR_CAPACITY 4096 /* the kernel hands the fixup a buffer this large */
@@ -120,14 +122,30 @@ int main(int argc, char **argv)
 		char name[64], hex[128];
 		int size, result;
 
-		/* "@upper-button VALUE" sets the udev property for the vectors after it; "unset" clears it. */
+		/*
+		 * "@upper-button VALUE" sets the udev property for the vectors after it; "unset" clears it.
+		 * Properties are only read when the program is loaded, so each of these also starts the
+		 * program's own state afresh, as a reload does.
+		 */
 		if (sscanf(line, " @upper-button %63s", name) == 1) {
 			set_pen_upper_button(strcmp(name, "unset") ? name : "");
+			forget_pen_state();
+			continue;
+		}
+		if (sscanf(line, " @lower-button %63s", name) == 1) {
+			set_pen_lower_button(strcmp(name, "unset") ? name : "");
+			forget_pen_state();
 			continue;
 		}
 		/* "@tilt VALUE" does the same for the tilt property. */
 		if (sscanf(line, " @tilt %63s", name) == 1) {
 			set_pen_tilt(strcmp(name, "unset") ? name : "");
+			forget_pen_state();
+			continue;
+		}
+		/* "@fresh" alone starts the program's state afresh without changing a property. */
+		if (!strncmp(line, "@fresh", 6)) {
+			forget_pen_state();
 			continue;
 		}
 		if (line[0] == '#' || sscanf(line, " %63[^| ] | %127[0-9a-fA-F ]", name, hex) != 2)

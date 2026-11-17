@@ -12,6 +12,9 @@ int probe(struct hid_bpf_probe_args *ctx);
 int xppen_artist16_3rd_rdesc_fixup(struct hid_bpf_ctx *hctx);
 int xppen_artist16_3rd_device_event(struct hid_bpf_ctx *hctx);
 extern char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
+extern char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
+extern unsigned char pen_buttons_held;
+extern unsigned char pen_switched_to_eraser;
 extern char UDEV_PROP_XPERIENCE_PEN_TILT[16];
 
 static struct hid_device device;
@@ -105,6 +108,18 @@ static void set_property(char *property, unsigned int size, const char *value)
 void set_pen_upper_button(const char *value)
 {
 	set_property(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON, sizeof(UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON), value);
+}
+
+void set_pen_lower_button(const char *value)
+{
+	set_property(UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON, sizeof(UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON), value);
+}
+
+/* A freshly loaded program: no button seen held, the pen not switched to its eraser. */
+void forget_pen_state(void)
+{
+	pen_buttons_held = 0;
+	pen_switched_to_eraser = 0;
 }
 
 void set_pen_tilt(const char *value)
