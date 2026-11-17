@@ -87,6 +87,44 @@ public class DisplayTests
         Assert.Equal(["display settings"], bench.Desktop.Writes);
     });
 
+    [Fact]
+    public Task The_firmware_version_is_the_tablets_two_texts_asked_once_per_plugging_in() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync();
+        var main = bench.Main;
+        // No tablet among the USB devices, or one that may not be asked: there is no version to show.
+        Assert.Null(main.Firmware);
+        bench.PlugUsb();
+        await main.RefreshAsync();
+        Assert.Null(main.Firmware);
+        Assert.Contains("Installing the driver gives the leave", main.Settings.FirmwareLine);
+
+        var asked = new List<(string Node, int Index)>();
+        bench.UsbTexts = (node, index) =>
+        {
+            asked.Add((node, index));
+            return index switch { 4 => "UG903_LDN1516F-A", 5 => " 2026-01-05_Release001 ", _ => null };
+        };
+        await main.RefreshAsync();
+        Assert.Equal("UG903_LDN1516F-A 2026-01-05_Release001", main.Firmware);
+        Assert.Equal("UG903_LDN1516F-A 2026-01-05_Release001", main.Settings.FirmwareLine);
+        Assert.Equal([("/dev/bus/usb/001/015", 4), ("/dev/bus/usb/001/015", 5)], asked);
+
+        // The same tablet is not asked again; plugged in anew (another device number) it is.
+        await main.RefreshAsync();
+        Assert.Equal(2, asked.Count);
+        bench.PlugUsb(number: 16);
+        await main.RefreshAsync();
+        Assert.Equal(("/dev/bus/usb/001/016", 5), asked[^1]);
+        Assert.Equal(4, asked.Count);
+
+        // Another maker's device is not the tablet.
+        File.WriteAllText(Path.Combine(bench.Folder, "usb", "1-2", "idVendor"), "046d\n");
+        await main.RefreshAsync();
+        Assert.Null(main.Firmware);
+        Assert.Equal(4, asked.Count);
+    });
+
     [Theory]
     [InlineData(0.8, "output.DP-5.brightness.80")]
     [InlineData(0.004, "output.DP-5.brightness.0")]

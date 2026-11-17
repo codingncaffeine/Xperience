@@ -97,7 +97,7 @@ XPPen's app goes back to the full area whenever the rotation changes; Xperience 
 | Export and import settings | Yes, differently | Xperience's own file. XPPen's settings files are not read. |
 | Restore defaults | Yes, differently | The monitor and the rotation are kept. |
 | Diagnostic tool: product, pen position and pressure | Yes | Under Settings, Diagnostics and Pen right now. |
-| Diagnostic tool: firmware version | Not yet | |
+| Diagnostic tool: firmware version | Yes | Needs leave to ask the tablet, which installing the driver gives. |
 | Tray icon with show and exit | Yes | |
 | Fifteen languages | Not yet | English only. |
 | Other XPPen tablets, and several at once | Not yet | The Artist 16 3rd only. |

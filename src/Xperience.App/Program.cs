@@ -163,6 +163,8 @@ static class Program
     {
         var presence = scan();
         Console.WriteLine($"Tablet:   {presence.Mode}" + (presence.VendorAppRunning ? "  (the XPPen app is running)" : ""));
+        if (presence.Mode != DriveMode.Absent)
+            Console.WriteLine($"  firmware      {new FirmwareReader().Read(TabletModel.Artist16Third) ?? "not readable by this account"}");
         Console.WriteLine($"  pen node      {presence.PenNode ?? "-"}");
         Console.WriteLine($"  pad node      {presence.PadNode ?? "-"}");
         Console.WriteLine($"  keyboard node {presence.KeyboardNode ?? "-"}");

@@ -45,9 +45,7 @@
             <Border Classes="card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="{Binding DriverTitle}" FontWeight="SemiBold" />
-                    <TextBlock Classes="muted" Text="{Binding DriverText}" />
-                    <SelectableTextBlock Text="{Binding DriverCommand}" FontFamily="monospace" Foreground="{DynamicResource XpText}"
-                                         IsVisible="{Binding DriverCommand, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="muted" Text="{Binding DriverText}" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Classes="action" Content="{Binding InstallLabel}" Command="{Binding InstallDriverCommand}" MinWidth="170"
                                 IsEnabled="{Binding CanInstallDriver}" />
@@ -64,17 +62,19 @@
 
             <TextBlock Classes="heading" Text="DIAGNOSTICS" Margin="0,6,0,0" />
             <Border Classes="card">
-                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
                     <TextBlock Classes="key" Text="Tablet" />
                     <TextBlock Grid.Column="1" Classes="value" Text="{Binding TabletLine}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="1" Classes="key" Text="Mode" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding ModeLine}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="2" Classes="key" Text="Desktop" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding DesktopLine}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="3" Classes="key" Text="Pen device" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding PenLine}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="4" Classes="key" Text="Pen mapped to" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Text="{Binding MappingLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Classes="key" Text="Firmware version" />
+                    <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding FirmwareLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="2" Classes="key" Text="Mode" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding ModeLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="3" Classes="key" Text="Desktop" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding DesktopLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="4" Classes="key" Text="Pen device" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Text="{Binding PenLine}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="5" Classes="key" Text="Pen mapped to" />
+                    <TextBlock Grid.Row="5" Grid.Column="1" Classes="value" Text="{Binding MappingLine}" TextWrapping="Wrap" />
                 </Grid>
             </Border>
 

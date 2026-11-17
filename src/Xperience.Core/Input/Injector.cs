@@ -30,6 +30,10 @@ public static class KernelInput
     public const uint UiDevSetup = 0x405c5503, UiDevCreate = 0x5501, UiDevDestroy = 0x5502;
     public const int AbsInfoSize = 24;        // struct input_absinfo
     public const uint EviocgAbsX = 0x80184540, EviocgAbsY = 0x80184541;
+
+    // A control transfer on a USB device's node (usbdevice_fs.h), and the size of the block it takes.
+    public const uint UsbdevfsControl = 0xC0185500;
+    public const int UsbControlSize = 24;
 }
 
 /// <summary>

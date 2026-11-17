@@ -4,7 +4,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Xperience.Core.Input;
 
-/// <summary>The one C library call this program needs: device control requests on an open input node.</summary>
+/// <summary>The one C library call this program needs: device control requests on an open device node.</summary>
 static class Libc
 {
     static Libc() => NativeLibrary.SetDllImportResolver(typeof(Libc).Assembly, Resolve);
@@ -27,6 +27,12 @@ static class Libc
 
     [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
     static extern int IoctlBuffer(SafeFileHandle fd, nuint request, byte[] argument);
+
+    [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
+    static extern int IoctlUsb(SafeFileHandle fd, nuint request, ref Tablets.UsbControl argument);
+
+    /// <summary>A control transfer on a USB node. Returns how many bytes came back, or -1 when the kernel or the device refuses.</summary>
+    public static int Transfer(SafeFileHandle fd, uint request, ref Tablets.UsbControl transfer) => IoctlUsb(fd, request, ref transfer);
 
     /// <summary>A request that takes a number. Returns false, with the error number, when the kernel refuses.</summary>
     public static bool Control(SafeFileHandle fd, uint request, int argument, out int error)

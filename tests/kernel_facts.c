@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <linux/usbdevice_fs.h>
 
 #define NUMBER(name) printf(#name "=%ld\n", (long)(name))
 #define KEY(name) printf("KEY_" #name "=%ld\n", (long)(KEY_##name))
@@ -23,6 +24,10 @@ int main(void)
 	printf("offsetof_event_value=%ld\n", (long)offsetof(struct input_event, value));
 	printf("offsetof_setup_name=%ld\n", (long)offsetof(struct uinput_setup, name));
 	printf("offsetof_absinfo_maximum=%ld\n", (long)offsetof(struct input_absinfo, maximum));
+	printf("USBDEVFS_CONTROL=%lu\n", (unsigned long)USBDEVFS_CONTROL);
+	printf("sizeof_usb_control=%ld\n", (long)sizeof(struct usbdevfs_ctrltransfer));
+	printf("offsetof_usb_control_timeout=%ld\n", (long)offsetof(struct usbdevfs_ctrltransfer, timeout));
+	printf("offsetof_usb_control_data=%ld\n", (long)offsetof(struct usbdevfs_ctrltransfer, data));
 	NUMBER(UINPUT_MAX_NAME_SIZE); NUMBER(BUS_VIRTUAL);
 	NUMBER(EV_SYN); NUMBER(EV_KEY); NUMBER(EV_REL);
 	NUMBER(REL_X); NUMBER(REL_Y); NUMBER(REL_WHEEL); NUMBER(REL_HWHEEL);

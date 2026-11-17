@@ -16,6 +16,9 @@ public sealed record AppServices(ControlHub Hub, IDialogs Dialogs, DriverSetup D
     /// <summary>The record of the session, and where it is kept; nobody's and nowhere in tests.</summary>
     public Xperience.Core.Diagnostics.ILog Log { get; init; } = Xperience.Core.Diagnostics.NoLog.Instance;
     public string LogPath { get; init; } = "";
+
+    /// <summary>Asks the tablet for its firmware version; one that finds no tablet in tests and demos.</summary>
+    public FirmwareReader Firmware { get; init; } = FirmwareReader.Absent;
 }
 
 /// <summary>
@@ -88,6 +91,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public FloatingMenuViewModel FloatingMenu { get; }
 
     public DesktopSnapshot Snapshot { get; private set; } = DesktopSnapshot.Empty;
+
+    /// <summary>The tablet's firmware version as it reports it; null when it is not plugged in or may not be asked.</summary>
+    public string? Firmware { get; private set; }
     public TabletPresence Presence { get; private set; } = TabletPresence.None;
     public DriverStatus DriverStatus { get; private set; } = new(false, false, false, DriverOptions.Default);
 
@@ -174,19 +180,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 var scan = _scan;
                 var model = Model;
                 var driver = Driver;
-                var (presence, snapshot, status, failure) = await Task.Run(async () =>
+                var reader = _services.Firmware;
+                var (presence, snapshot, status, failure, firmware) = await Task.Run(async () =>
                 {
                     var found = scan();
                     var installed = driver.Read();
+                    string? version = found.Mode != DriveMode.Absent ? reader.Read(model) : null;
                     try
                     {
-                        return (found, compositor != null ? await compositor.ReadAsync(model).ConfigureAwait(false) : DesktopSnapshot.Empty, installed, (string?)null);
+                        return (found, compositor != null ? await compositor.ReadAsync(model).ConfigureAwait(false) : DesktopSnapshot.Empty, installed, (string?)null, version);
                     }
                     catch (Exception e) when (KWinCompositor.IsBusFault(e) || e is IOException or InvalidOperationException)
                     {
-                        return (found, DesktopSnapshot.Empty, installed, e.Message);
+                        return (found, DesktopSnapshot.Empty, installed, e.Message, version);
                     }
                 });
+                Firmware = firmware;
                 await UseReadersAsync(presence.PenNode, presence.PadNode);
                 Presence = presence;
                 Snapshot = snapshot;
@@ -271,7 +280,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var pen = snapshot.Pen;
         string[] lines =
         [
-            $"tablet   {presence.Mode}, pen node {presence.PenNode ?? "none"}, keys node {presence.PadNode ?? "none"}{(presence.VendorAppRunning ? ", the XPPen app is running" : "")}",
+            $"tablet   {presence.Mode}, pen node {presence.PenNode ?? "none"}, keys node {presence.PadNode ?? "none"}, firmware {Firmware ?? "not read"}{(presence.VendorAppRunning ? ", the XPPen app is running" : "")}",
             $"driver   {(status.Installed ? "installed" : "not installed")}, loader {(status.LoaderInstalled ? "present" : "missing")}, upper button {DriverOptions.Word(status.Options.Upper)}, "
                 + $"lower button {DriverOptions.Word(status.Options.Lower)}, tilt {(status.Options.TiltOff ? "off" : "on")}",
             "screens  " + (snapshot.Screens.Count == 0 ? "none" : string.Join("; ", snapshot.Screens.Select(s => string.Create(culture,

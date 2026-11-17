@@ -127,14 +127,15 @@ public sealed class DriverSetup
         return end < 0 ? null : rules[(at + lead.Length)..end];
     }
 
-    /// <summary>Installs or updates the driver with these options and loads it. Asks for administrator rights.</summary>
+    /// <summary>
+    /// Installs or updates the driver with these options and loads it. Asks for administrator rights. Where the
+    /// system's loader for such drivers is missing, the helper brings it from the distribution first.
+    /// </summary>
     public async Task<(bool Ok, string Message)> InstallAsync(DriverOptions options)
     {
         var status = Read();
         if (!status.CanInstall)
             return (false, "This build does not carry the driver.");
-        if (!status.LoaderInstalled)
-            return (false, $"The system's driver loader is missing. Install the package {LoaderPackage} first.");
         return Outcome(await _elevate([_helperPath, "install", _objectPath, DriverOptions.Word(options.Upper), options.TiltOff ? "off" : "on", DriverOptions.Word(options.Lower),
             DriverOptions.Keys(options.SwitchKeys) is { Length: > 0 } keys ? keys : "none"]).ConfigureAwait(false));
     }

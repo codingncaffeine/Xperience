@@ -58,8 +58,7 @@ tools/test.sh            # every test: the driver's, the install helper's and th
 
 ## Not here yet
 
-The firmware version in the diagnostics, languages other than English, and tablets other than the
-Artist 16 3rd.
+Languages other than English, and tablets other than the Artist 16 3rd.
 
 ## License
 

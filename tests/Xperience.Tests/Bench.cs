@@ -173,10 +173,27 @@ public sealed class Bench : IDisposable
             return Task.FromResult(Elevate(command));
         });
         Autostart = new Autostart(Path.Combine(Folder, "autostart", "xperience.desktop"), "/opt/xperience/xperience", Path.Combine(Folder, "system", "etc/xdg/autostart/xppentablet.desktop"));
-        Main = new MainViewModel(Desktop, () => Presence, "0.0.0", "", new AppServices(Hub, Dialogs, Driver, Autostart));
+        Main = new MainViewModel(Desktop, () => Presence, "0.0.0", "", new AppServices(Hub, Dialogs, Driver, Autostart)
+        {
+            Firmware = new FirmwareReader(Path.Combine(Folder, "usb"), "/dev/bus/usb", (node, index) => UsbTexts(node, index)),
+        });
     }
 
     public string SystemFolder => Path.Combine(Folder, "system");
+
+    /// <summary>What the make-believe tablet answers when asked for one of its USB texts; by default it may not be asked.</summary>
+    public Func<string, int, string?> UsbTexts { get; set; } = (_, _) => null;
+
+    /// <summary>Plugs a make-believe tablet into the kernel's list of USB devices, as device 15 on bus 1.</summary>
+    public void PlugUsb(int bus = 1, int number = 15)
+    {
+        string device = Path.Combine(Folder, "usb", "1-2");
+        Directory.CreateDirectory(device);
+        File.WriteAllText(Path.Combine(device, "idVendor"), "28bd\n");
+        File.WriteAllText(Path.Combine(device, "idProduct"), "097e\n");
+        File.WriteAllText(Path.Combine(device, "busnum"), bus.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n");
+        File.WriteAllText(Path.Combine(device, "devnum"), number.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n");
+    }
 
     /// <summary>Opens the window's state as the program does at its start.</summary>
     public static async Task<Bench> OpenAsync(TabletPresence? presence = null, XperienceConfig? config = null, bool upright = false)

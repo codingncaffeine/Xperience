@@ -56,7 +56,7 @@ public sealed class App : Application, IHubUi
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             _hub = new ControlHub(start.Compositor, start.Store, start.Injector, TabletModel.Artist16Third) { Ui = this, Log = start.Log };
             var dialogs = new WindowDialogs(() => _window, () => _main?.PenReader);
-            _main = new MainViewModel(start.Compositor, start.Scan, start.Version, start.Built, new AppServices(_hub, dialogs, start.Driver, start.Autostart) { Log = start.Log, LogPath = start.LogPath });
+            _main = new MainViewModel(start.Compositor, start.Scan, start.Version, start.Built, new AppServices(_hub, dialogs, start.Driver, start.Autostart) { Log = start.Log, LogPath = start.LogPath, Firmware = start.Demo ? FirmwareReader.Absent : new FirmwareReader() });
             _main.Open(OpenPage(start.Page));
             _main.FloatingMenu.ShowRequested += ToggleMenu;
             _hub.Changed += () => Dispatcher.UIThread.Post(() => _menu?.Fill());

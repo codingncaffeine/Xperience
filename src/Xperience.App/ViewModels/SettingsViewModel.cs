@@ -12,6 +12,7 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
 {
     bool _loading;
 
+    [ObservableProperty] private string _firmwareLine = "—";
     [ObservableProperty] private bool _makersAppInstalled;
     [ObservableProperty] private bool _makersAppStarts;
     [ObservableProperty] private string _tabletLine = "";
@@ -31,7 +32,6 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
 
     [ObservableProperty] private string _driverTitle = "";
     [ObservableProperty] private string _driverText = "";
-    [ObservableProperty] private string _driverCommand = "";
     [ObservableProperty] private string _installLabel = "Install driver";
     [ObservableProperty] private bool _canInstallDriver;
     [ObservableProperty] private bool _canRemoveDriver;
@@ -68,6 +68,8 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
                 _ => $"The active monitor{turn}",
             };
 
+            FirmwareLine = main.Firmware ?? (presence.Mode == DriveMode.Absent ? "—"
+                : "Not readable from this account. Installing the driver gives the leave to ask the tablet.");
             Hints = config.Hints;
             KeysDisabled = config.KeysDisabled;
             KeepRunning = config.KeepRunning;
@@ -84,18 +86,11 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
 
     void ShowDriver(DriverStatus status, DriveMode mode)
     {
-        DriverCommand = "";
         CanRemoveDriver = status.Installed && status.CanInstall && !DriverBusy;
-        CanInstallDriver = status.CanInstall && status.LoaderInstalled && !DriverBusy;
+        CanInstallDriver = status.CanInstall && !DriverBusy;
         InstallLabel = status.Installed ? "Reinstall driver" : "Install driver";
         if (!status.CanInstall)
             (DriverTitle, DriverText) = ("Not part of this build", "This copy of Xperience does not carry the driver.");
-        else if (!status.LoaderInstalled)
-        {
-            (DriverTitle, DriverText) = ("One package is missing",
-                $"The driver is loaded by the system's loader for such drivers, the package {DriverSetup.LoaderPackage}. Install it with your package manager, then press the refresh button at the top. On Arch Linux:");
-            DriverCommand = $"sudo pacman -S {DriverSetup.LoaderPackage}";
-        }
         else if (status.Installed && mode == DriveMode.Driver)
             (DriverTitle, DriverText) = ("Installed and loaded", "The tablet's keys and dials are real controls and follow what is assigned on the tablet page.");
         else if (status.Installed)
@@ -103,7 +98,9 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         else
             (DriverTitle, DriverText) = ("Not installed",
                 "The driver makes the eight keys and two dials real controls, so they can be assigned, and lets Xperience see them. Installing asks for administrator rights. " +
-                "While it loads the pen is away for a moment; if it does not come back, unplug the tablet and plug it in again. Close the XPPen app first.");
+                // The loader is the distribution's own package and not on every system; the install brings it.
+                (status.LoaderInstalled ? "" : $"It also installs {DriverSetup.LoaderPackage}, the distribution's package that loads such drivers. ") +
+                "While it loads the pen is away for a moment; if it does not come back, unplug the tablet and plug it in again.");
     }
 
     partial void OnHintsChanged(bool value) => Change(c => c with { Hints = value });
@@ -175,7 +172,31 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
     }
 
     [RelayCommand]
-    Task InstallDriver() => main.Pending = InstallDriverAsync(WantedOptions());
+    Task InstallDriver() => main.Pending = InstallFromButtonAsync();
+
+    /// <summary>
+    /// What the Install driver button does: it first sees to the maker's own app, which cannot run the tablet
+    /// at the same time, and then installs. The app has to be closed by the person, since closing it is theirs
+    /// to do; keeping it from coming back at the next login is done here, after saying so.
+    /// </summary>
+    async Task InstallFromButtonAsync()
+    {
+        if (main.Presence.VendorAppRunning)
+        {
+            main.Problem = "XPPen's own app is running, and it and the driver cannot both run the tablet. Close it first (its tray icon, Exit), then install the driver.";
+            return;
+        }
+        if (main.Autostart.MakersAppStarts)
+        {
+            if (!await main.Dialogs.ConfirmAsync("Install driver",
+                "XPPen's own app is set to start when you log in, and it would take the tablet away from the driver. Xperience will keep it from starting. It stays installed, and Settings can let it start again.", "Install driver"))
+                return;
+            if (!main.Autostart.SetMakersAppStarts(false))
+                main.Log.Write("driver", "the XPPen app's autostart entry in this account is not Xperience's to change; it was left as it is");
+            Update();
+        }
+        await InstallDriverAsync(WantedOptions());
+    }
 
     /// <summary>Installs or reloads the driver with the given options, then gives the pen its settings back.</summary>
     public async Task InstallDriverAsync(DriverOptions options)

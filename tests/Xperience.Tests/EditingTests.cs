@@ -475,21 +475,73 @@ public class EditingTests
     });
 
     [Fact]
-    public Task A_missing_loader_is_named_with_the_package_that_brings_it() => OnUi(async () =>
+    public Task A_missing_loader_is_brought_along_by_the_install_and_never_asked_for_by_command() => OnUi(async () =>
     {
         using var bench = await Bench.OpenAsync();
         var main = bench.Main;
         File.Delete(Path.Combine(bench.SystemFolder, "usr/bin/udev-hid-bpf"));
         await main.RefreshAsync();
 
-        Assert.Equal("One package is missing", main.Settings.DriverTitle);
-        Assert.Equal("sudo pacman -S udev-hid-bpf", main.Settings.DriverCommand);
-        Assert.False(main.Settings.CanInstallDriver);
+        // The button stays there to press, and the card says what else pressing it installs.
+        Assert.Equal("Not installed", main.Settings.DriverTitle);
+        Assert.Contains("also installs udev-hid-bpf", main.Settings.DriverText);
+        Assert.DoesNotContain("pacman", main.Settings.DriverText);
+        Assert.True(main.Settings.CanInstallDriver);
 
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none"], bench.Elevated);
+        Assert.Null(main.Problem);
+
+        // When the helper cannot bring it, what it said is shown.
+        bench.Elevate = _ => (3, "The package udev-hid-bpf, which loads the driver, could not be installed.");
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.Contains("could not be installed", main.Problem);
+    });
+
+    [Fact]
+    public Task Installing_the_driver_sees_to_the_makers_app_first() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync();
+        var main = bench.Main;
+        string theirs = Path.Combine(bench.SystemFolder, "etc/xdg/autostart/xppentablet.desktop");
+        Directory.CreateDirectory(Path.GetDirectoryName(theirs)!);
+        File.WriteAllText(theirs, "[Desktop Entry]\nName=xppentablet\nType=Application\n");
+        await main.RefreshAsync();
+        Assert.True(main.Settings.MakersAppStarts);
+
+        // Saying no leaves everything as it is.
+        bench.Dialogs.Confirm = false;
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.Equal(["confirm Install driver"], bench.Dialogs.Asked);
         Assert.Empty(bench.Elevated);
-        Assert.Contains("udev-hid-bpf", main.Problem);
+        Assert.True(bench.Autostart.MakersAppStarts);
+
+        // Saying yes keeps the maker's app from starting, without touching what it installed, and installs.
+        bench.Dialogs.Confirm = true;
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.False(bench.Autostart.MakersAppStarts);
+        Assert.False(main.Settings.MakersAppStarts);
+        Assert.True(File.Exists(theirs));
+        Assert.Single(bench.Elevated);
+
+        // The next install has nothing left to ask.
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.Equal(2, bench.Dialogs.Asked.Count(a => a == "confirm Install driver"));
+        Assert.Equal(2, bench.Elevated.Count);
+
+        // While the maker's app runs, the driver is not installed over it.
+        bench.Presence = bench.Presence with { VendorAppRunning = true };
+        await main.RefreshAsync();
+        int before = bench.Elevated.Count;
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.Equal(before, bench.Elevated.Count);
+        Assert.Contains("Close it first", main.Problem);
     });
 
     [Fact]
