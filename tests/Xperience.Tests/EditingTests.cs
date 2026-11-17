@@ -459,6 +459,28 @@ public class EditingTests
     });
 
     [Fact]
+    public Task An_installed_driver_older_than_the_carried_one_is_offered_as_an_update() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync(Bench.Driven);
+        var main = bench.Main;
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev/rules.d"));
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf"));
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"), "");
+        string placed = Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf", DriverSetup.ObjectName);
+        File.WriteAllText(placed, "an older driver");
+        await main.RefreshAsync();
+
+        Assert.Equal("An update is ready", main.Settings.DriverTitle);
+        Assert.Equal("Update driver", main.Settings.InstallLabel);
+
+        // The same bytes as the carried one: nothing to update.
+        File.WriteAllText(placed, "");
+        await main.RefreshAsync();
+        Assert.Equal("Installed and loaded", main.Settings.DriverTitle);
+        Assert.Equal("Reinstall driver", main.Settings.InstallLabel);
+    });
+
+    [Fact]
     public Task Administrator_rights_refused_leave_everything_as_it_was_and_say_so() => OnUi(async () =>
     {
         using var bench = await Bench.OpenAsync();

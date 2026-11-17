@@ -58,7 +58,8 @@ public sealed record DriverOptions(PenButtonRole Upper, PenButtonRole Lower, boo
 /// <param name="Installed">The driver and its rules are in place.</param>
 /// <param name="CanInstall">This build carries the driver and the helper that installs it.</param>
 /// <param name="Options">The choices the installed driver is loaded with.</param>
-public sealed record DriverStatus(bool LoaderInstalled, bool Installed, bool CanInstall, DriverOptions Options);
+/// <param name="Outdated">The installed driver is not the one this build carries, so installing again updates it.</param>
+public sealed record DriverStatus(bool LoaderInstalled, bool Installed, bool CanInstall, DriverOptions Options, bool Outdated = false);
 
 /// <summary>
 /// Installs, updates and removes the tablet driver. The work needs administrator rights, so it is done by a
@@ -97,9 +98,24 @@ public sealed class DriverSetup
     public DriverStatus Read()
     {
         bool loader = ((string[])["usr/bin", "usr/local/bin", "bin"]).Any(d => File.Exists(Path.Combine(_root, d, "udev-hid-bpf")));
-        bool installed = File.Exists(RulesFile) &&
-            ((string[])["etc/udev-hid-bpf", "usr/lib/firmware/hid/bpf", "usr/local/lib/firmware/hid/bpf"]).Any(d => File.Exists(Path.Combine(_root, d, ObjectName)));
-        return new DriverStatus(loader, installed, File.Exists(_objectPath) && File.Exists(_helperPath), ReadOptions());
+        string? placed = ((string[])["etc/udev-hid-bpf", "usr/lib/firmware/hid/bpf", "usr/local/lib/firmware/hid/bpf"])
+            .Select(d => Path.Combine(_root, d, ObjectName)).FirstOrDefault(File.Exists);
+        bool installed = File.Exists(RulesFile) && placed != null;
+        bool carried = File.Exists(_objectPath) && File.Exists(_helperPath);
+        return new DriverStatus(loader, installed, carried, ReadOptions(), installed && carried && !SameBytes(placed!, _objectPath));
+    }
+
+    /// <summary>Whether two files hold the same bytes; one that cannot be read counts as the same, so nothing is offered on a guess.</summary>
+    static bool SameBytes(string one, string other)
+    {
+        try
+        {
+            return File.ReadAllBytes(one).AsSpan().SequenceEqual(File.ReadAllBytes(other));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     /// <summary>The options as the installed rules have them: the rules file is where they live.</summary>

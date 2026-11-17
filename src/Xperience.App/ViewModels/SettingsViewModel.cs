@@ -85,16 +85,21 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
     {
         CanRemoveDriver = status.Installed && status.CanInstall && !DriverBusy;
         CanInstallDriver = status.CanInstall && !DriverBusy;
-        InstallLabel = status.Installed ? "Reinstall driver" : "Install driver";
+        InstallLabel = status.Outdated ? "Update driver" : status.Installed ? "Reinstall driver" : "Install driver";
         if (!status.CanInstall)
             (DriverTitle, DriverText) = ("Not part of this build", "This copy of Xperience does not carry the driver.");
+        else if (status.Outdated)
+            (DriverTitle, DriverText) = ("An update is ready", "This version of Xperience carries a newer driver than the one installed. Updating keeps your pen choices and asks for administrator rights.");
         else if (status.Installed && mode == DriveMode.Driver)
             (DriverTitle, DriverText) = ("Installed and loaded", "The tablet's keys and dials are real controls and follow what is assigned on the tablet page.");
         else if (status.Installed)
             (DriverTitle, DriverText) = ("Installed, not loaded", "Unplug the tablet and plug it back in, or reinstall to load the driver now.");
         else
             (DriverTitle, DriverText) = ("Not installed",
-                "The driver makes the eight keys and two dials real controls, so they can be assigned, and lets Xperience see them. Installing asks for administrator rights. " +
+                (main.Model.Keys.Count + main.Model.Dials.Count > 0
+                    ? "The driver makes the tablet's keys and dials real controls, so they can be assigned, and lets Xperience see them. "
+                    : "The driver hands on the pen's full pressure and tilt and lets Xperience see the tablet. ") +
+                "Installing asks for administrator rights. " +
                 // The loader is the distribution's own package and not on every system; the install brings it.
                 (status.LoaderInstalled ? "" : $"It also installs {DriverSetup.LoaderPackage}, the distribution's package that loads such drivers. ") +
                 "While it loads the pen is away for a moment; if it does not come back, unplug the tablet and plug it in again.");

@@ -1,9 +1,9 @@
-![Xperience: tablet controls for the XPPen Artist 16 3rd on Linux](assets/banner.jpg)
+![Xperience: tablet controls for XPPen tablets on Linux](assets/banner.jpg)
 
 # Xperience
 
-Linux support for the XPPen Artist 16 3rd pen display: a kernel driver for its keys, dials and pen, and a
-settings app for everything the maker's own app offers.
+Linux support for XPPen pen tablets and pen displays, covering most of the lineup XPPen offers: a kernel
+driver for their keys, dials and pen, and a settings app for everything the maker's own app offers.
 
 It runs on KDE Plasma 6 (Wayland). Nothing of the maker's own driver or software is needed.
 
@@ -64,7 +64,7 @@ in charge; with Xperience there is no need to keep it installed.
 
 ## Not here yet
 
-Languages other than English, and tablets other than the Artist 16 3rd.
+Languages other than English, and several tablets plugged in at once.
 
 ## Building
 

@@ -95,11 +95,11 @@ Depends: libc6, libgcc-s1, libstdc++6, libicu76 | libicu74 | libicu72 | libicu70
 Recommends: udev-hid-bpf, pkexec | policykit-1
 Maintainer: Xperience <codingncaffeine@users.noreply.github.com>
 Homepage: https://github.com/codingncaffeine/Xperience
-Description: Settings and driver for the XPPen Artist 16 3rd pen display
- Xperience sets up the XPPen Artist 16 3rd on KDE Plasma: which monitor and
- which part of it the pen works on, rotation, calibration, the pressure curve,
- and what each of the tablet's eight keys, two dials and the pen's buttons does,
- with a profile per application.
+Description: Settings and driver for XPPen pen tablets and pen displays
+ Xperience sets up XPPen tablets on KDE Plasma, covering most of the lineup:
+ which monitor and which part of it the pen works on, rotation, calibration,
+ the pressure curve, and what each of the tablet's keys, dials and the pen's
+ buttons does, with a profile per application.
  .
  It comes with an HID-BPF driver, loaded by udev-hid-bpf, that turns the
  tablet's keys and dials from fixed keyboard shortcuts into real tablet

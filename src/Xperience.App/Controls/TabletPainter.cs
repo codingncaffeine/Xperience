@@ -7,7 +7,7 @@ using Xperience.Core.Tablets;
 namespace Xperience.App.Controls;
 
 /// <summary>
-/// Draws the tablet from its model: body, screen, eight keys and two dials. When the tablet is used turned
+/// Draws the tablet from its model: body, screen (on a pen display), keys and dials. When the tablet is used turned
 /// around, the drawing turns with it, so the picture matches what is on the desk.
 /// </summary>
 static class TabletPainter

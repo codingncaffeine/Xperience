@@ -5,7 +5,7 @@
 pkgname=xperience-bin
 pkgver=0.0.2
 pkgrel=1
-pkgdesc="Settings and HID-BPF driver for the XPPen Artist 16 3rd pen display: keys, dials, pen, work area"
+pkgdesc="Settings and HID-BPF driver for XPPen pen tablets and pen displays: keys, dials, pen, work area"
 arch=('x86_64')
 url="https://github.com/codingncaffeine/Xperience"
 license=('GPL-3.0-or-later' 'GPL-2.0-only')

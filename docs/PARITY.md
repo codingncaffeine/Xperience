@@ -97,7 +97,8 @@ XPPen's app goes back to the full area whenever the rotation changes; Xperience 
 | Diagnostic tool: firmware version | Yes | Needs leave to ask the tablet, which installing the driver gives. |
 | Tray icon with show and exit | Yes | |
 | Fifteen languages | Not yet | English only. |
-| Other XPPen tablets, and several at once | Not yet | The Artist 16 3rd only. |
+| Other XPPen tablets | Yes | Most of the lineup. |
+| Several tablets at once | Not yet | One at a time. |
 | Feedback link, usage statistics sent to XPPen, check for a new version | No | Left out on purpose. |
 
 ## Not in XPPen's Linux app for this tablet

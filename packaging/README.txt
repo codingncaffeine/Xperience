@@ -1,7 +1,7 @@
 Xperience
 =========
 
-Settings for the XPPen Artist 16 3rd pen display on Linux, and the driver for its keys and dials.
+Settings for XPPen pen tablets and pen displays on Linux (most of the lineup), and the driver for their keys and dials.
 
 Run ./xperience from this folder (or "xperience" once installed from a package).
 
