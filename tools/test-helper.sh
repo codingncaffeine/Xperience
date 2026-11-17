@@ -26,6 +26,15 @@ echo "HID_PHYS=usb-0000:0b:00.3-1/input2" > "$fake/sys/bus/hid/devices/0003:046D
 cat > "$work/bin/udev-hid-bpf" <<STUB
 #!/bin/sh
 echo "udev-hid-bpf \$*" >> "$work/calls"
+# Marker files make the stand-in refuse, the way the real loader and the kernel can.
+if [ "\$1" = install ] && [ -e "$work/refuse-install" ]; then
+	echo "Error: failed to open object" >&2
+	exit 101
+fi
+if [ "\$1" = add ] && [ -e "$work/refuse-add" ]; then
+	echo "libbpf: prog 'device_event': BPF program load failed: Permission denied" >&2
+	exit 1
+fi
 if [ "\$1" = install ]; then
 	mkdir -p "$fake/etc/udev-hid-bpf" "$fake/etc/udev/rules.d"
 	for last; do :; done
@@ -105,6 +114,31 @@ refused "too few arguments" install "$work/$name"
 refused "an unknown verb" purge
 refused "no verb"
 check "a refusal calls nothing and writes nothing" '[ ! -s "$work/calls" ] && [ ! -e "$rules" ]'
+
+# The loader will not take the object: nothing is changed, and what it said is passed on.
+rm -f "$rules"
+touch "$work/refuse-install"
+set +e
+said=$(run install "$work/$name" eraser on button none 1 2>&1)
+code=$?
+set -e
+rm "$work/refuse-install"
+check "a loader that will not take the object is exit code 4" '[ "$code" = 4 ]'
+check "what the loader said is passed on" 'echo "$said" | grep -q "failed to open object"'
+check "and no rules were written" '[ ! -e "$rules" ]'
+
+# The kernel will not load the program: the driver is taken out again, so the tablet is left as it was.
+touch "$work/refuse-add"
+: > "$fake/dev/hidraw6"
+set +e
+said=$(run install "$work/$name" eraser on button none 1 2>&1)
+code=$?
+set -e
+rm "$work/refuse-add"
+check "a kernel that will not load the driver is exit code 5" '[ "$code" = 5 ]'
+check "what the kernel said is passed on" 'echo "$said" | grep -q "BPF program load failed"'
+check "and the driver is taken out again" '[ ! -e "$rules" ] && [ ! -e "$fake/etc/udev-hid-bpf/$name" ] && [ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
+check "with the tablet put back into its own mode" '[ "$(od -An -tx1 "$fake/dev/hidraw6" | tr -d " \n")" = "02b00200000000000000" ]'
 
 # Without the loader. These runs see nothing of this machine's own programs but the few plain tools the helper
 # uses, so that no real package manager can be reached from a test.

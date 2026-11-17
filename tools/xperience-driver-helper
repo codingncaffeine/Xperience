@@ -46,6 +46,27 @@ leave_raw_mode() {
 	done
 }
 
+# Unloads the driver, puts the tablet back into the mode it comes in and takes the driver's files away.
+take_out() {
+	# Without the loader nothing of ours can be loaded, and there is nothing to unload.
+	if command -v udev-hid-bpf > /dev/null 2>&1; then
+		for device in $(devices); do
+			udev-hid-bpf remove "$device" > /dev/null 2>&1 || true
+		done
+	fi
+	# The tablet's nodes are made anew when the driver lets go of it.
+	udevadm settle --timeout=5 || true
+	leave_raw_mode
+	rm -f "$rules" "$root/etc/udev-hid-bpf/$name"
+	# The rule udev-hid-bpf wrote for the driver names it; any rule file that does goes with it.
+	rm -f "$root"/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd*.rules
+	for rule in "$root"/etc/udev/rules.d/*hid-bpf*.rules; do
+		[ -e "$rule" ] || continue
+		if grep -q "$name" "$rule"; then rm -f "$rule"; fi
+	done
+	reload_rules
+}
+
 reload_rules() {
 	udevadm control --reload
 	# Access for the person at the seat is granted when the nodes are looked at again.
@@ -104,7 +125,13 @@ install)
 
 	command -v udev-hid-bpf > /dev/null 2>&1 || install_loader
 
-	udev-hid-bpf install --force "$object"
+	# What the loader says goes to a file, so that a refusal can be told in a sentence with its last lines.
+	log=$(mktemp)
+	if ! udev-hid-bpf install --force "$object" > "$log" 2>&1; then
+		tail -n 6 "$log" >&2
+		rm -f "$log"
+		fail "The system's loader for such drivers would not take this one, so nothing was changed. What it said is above." 4
+	fi
 
 	mkdir -p "$(dirname "$rules")"
 	# Numbered 70: access rules only count before 73, and the pen's options have to be set before the
@@ -127,31 +154,23 @@ RULES
 	reload_rules
 
 	for device in $(devices); do
-		udev-hid-bpf add --replace \
+		if ! udev-hid-bpf add --replace \
 			--property "XPERIENCE_PEN_UPPER_BUTTON=$upper" --property "XPERIENCE_PEN_LOWER_BUTTON=$lower" \
 			--property "XPERIENCE_PEN_TILT=$tilt" --property "XPERIENCE_PEN_SWITCH_KEYS=$keys" --property "XPERIENCE_PEN_SMOOTHING=$smoothing" \
-			"$device" "$object"
+			"$device" "$object" > "$log" 2>&1; then
+			# The kernel checks every such program before running it and says why it turns one down. A
+			# driver that will not load is taken out again, so the tablet is left as it was.
+			tail -n 40 "$log" >&2
+			rm -f "$log"
+			take_out
+			fail "The kernel would not load the driver, so it was taken out again and the tablet is as it was. What the kernel said is above." 5
+		fi
 	done
+	rm -f "$log"
 	;;
 remove)
 	[ "$#" -eq 1 ] || fail "usage: $0 remove" 2
-	# Without the loader nothing of ours can be loaded, and there is nothing to unload.
-	if command -v udev-hid-bpf > /dev/null 2>&1; then
-		for device in $(devices); do
-			udev-hid-bpf remove "$device" || true
-		done
-	fi
-	# The tablet's nodes are made anew when the driver lets go of it.
-	udevadm settle --timeout=5 || true
-	leave_raw_mode
-	rm -f "$rules" "$root/etc/udev-hid-bpf/$name"
-	# The rule udev-hid-bpf wrote for the driver names it; any rule file that does goes with it.
-	rm -f "$root"/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd*.rules
-	for rule in "$root"/etc/udev/rules.d/*hid-bpf*.rules; do
-		[ -e "$rule" ] || continue
-		if grep -q "$name" "$rule"; then rm -f "$rule"; fi
-	done
-	reload_rules
+	take_out
 	;;
 *)
 	fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none 1-8 | remove" 2
