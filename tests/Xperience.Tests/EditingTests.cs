@@ -733,7 +733,7 @@ public class EditingTests
         await main.Home.ToggleLabels();
         Assert.False(main.Home.LabelsShown);
         Assert.True(bench.Store.LoadState().LabelsHidden);
-        Assert.Equal(Profile.KeyCount, main.Home.KeyLabels.Count);
+        Assert.Equal(main.Model.Keys.Count, main.Home.KeyLabels.Count);
 
         await main.Home.ToggleLabels();
         Assert.True(main.Home.LabelsShown);

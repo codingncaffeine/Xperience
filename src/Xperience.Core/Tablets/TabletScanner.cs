@@ -51,8 +51,27 @@ public static class TabletScanner
             // Without the kernel's device list there is nothing to report.
         }
 
-        var mode = pen == null && pad == null && keyboard == null ? DriveMode.Absent : pad != null ? DriveMode.Driver : DriveMode.BuiltIn;
+        // The driver is what puts the pen on the tablet's vendor interface, so a pen there means the driver, even
+        // on a tablet with no keys and so no pad.
+        var mode = pen == null && pad == null && keyboard == null ? DriveMode.Absent
+            : pad != null || (pen != null && PenOnVendorInterface(sysRoot, pen)) ? DriveMode.Driver : DriveMode.BuiltIn;
         return new TabletPresence(mode, pen, pad, keyboard, VendorAppRunning(procRoot));
+    }
+
+    /// <summary>True when the pen's HID device describes the vendor page ff0a first: the tablet's vendor interface.</summary>
+    static bool PenOnVendorInterface(string sysRoot, string penNode)
+    {
+        try
+        {
+            string descriptor = Path.Combine(sysRoot, Path.GetFileName(penNode), "device", "device", "report_descriptor");
+            using var file = File.OpenRead(descriptor);
+            Span<byte> head = stackalloc byte[3];
+            return file.Read(head) == 3 && head[0] == 0x06 && head[1] == 0x0a && head[2] == 0xff;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>True when the maker's own driver program is running: it and the kernel cannot both drive the pen.</summary>

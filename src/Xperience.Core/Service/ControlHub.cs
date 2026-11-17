@@ -155,7 +155,7 @@ public sealed class ControlHub : IDisposable
     public Task KeyAsync(int own, bool down) => Post(async () =>
     {
         XperienceConfig config = Config;
-        if (own < 0 || own >= Profile.KeyCount)
+        if (own < 0 || own >= TabletModel.Active.Keys.Count)
             return;
         int index = HeldOrder.Key(own, Turn);
         if (config.KeysDisabled)

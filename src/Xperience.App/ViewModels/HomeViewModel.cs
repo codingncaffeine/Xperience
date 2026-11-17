@@ -15,6 +15,7 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
 {
     [ObservableProperty] private bool _turned;
     [ObservableProperty] private bool _hasTablet;
+    [ObservableProperty] private string _hint = "";
     [ObservableProperty] private string _modeTitle = "";
     [ObservableProperty] private string _modeText = "";
     [ObservableProperty] private bool _showMode;
@@ -35,13 +36,21 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
         var slots = main.Hub.SlotsOf(profile);
         Turned = main.Snapshot.Pen?.Flipped ?? false;
         HasTablet = main.Presence.Mode != DriveMode.Absent;
+        // What there is to click on this tablet.
+        Hint = (main.Model.Keys.Count, main.Model.Dials.Count) switch
+        {
+            (0, 0) => "This tablet has no keys or dials. Its pen is set up under Pen settings.",
+            (_, 0) => "Click a key to change what it does.",
+            (_, 1) => "Click a key or the dial to change what it does. The dial has four functions of your choosing and is on one of them; a key set to Switch dial 1 moves it on to its next one.",
+            _ => "Click a key or a dial to change what it does. Each dial has four functions of your choosing and is on one of them; a key set to Switch dial 1 or Switch dial 2 moves that dial on to its next one.",
+        };
         KeysDisabled = config.KeysDisabled;
         LabelsShown = !main.Hub.State.LabelsHidden;
         // The picture has the keys where they are on the tablet; the profile has them in the order they run as held.
         var turn = main.Snapshot.Pen?.Turn ?? TabletTurn.None;
-        KeyLabels = [.. Enumerable.Range(0, Profile.KeyCount).Select(own => profile.Key(HeldOrder.Key(own, turn)).Label)];
+        KeyLabels = [.. Enumerable.Range(0, main.Model.Keys.Count).Select(own => profile.Key(HeldOrder.Key(own, turn)).Label)];
         // A dial is named with its number, the one the "Switch dial" keys go by, and the function it is on now.
-        DialLabels = [.. Enumerable.Range(0, Profile.DialCount).Select(own => HeldOrder.Dial(own, turn))
+        DialLabels = [.. Enumerable.Range(0, main.Model.Dials.Count).Select(own => HeldOrder.Dial(own, turn))
             .Select(d => string.Create(CultureInfo.CurrentCulture, $"Dial {d + 1}  ·  {profile.Dial(d, slots[d]).Label}"))];
         string active = main.Hub.ActiveProfile.App;
         Profiles = [.. config.Profiles.Select(p => new ProfileTab(p.Name, p.App, p.App.Equals(profile.App, StringComparison.OrdinalIgnoreCase),

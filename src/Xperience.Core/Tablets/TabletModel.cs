@@ -13,10 +13,57 @@ public sealed record TabletModel(
     RectD ActiveAreaMm,
     int PressureMax,
     IReadOnlyList<ControlSpot> Keys,
-    IReadOnlyList<ControlSpot> Dials)
+    IReadOnlyList<ControlSpot> Dials,
+    bool HasScreen = true)
 {
+    /// <summary>
+    /// The tablet this run of the app is for: found when it starts (<see cref="TabletDetector"/>), the Artist 16
+    /// 3rd when none is plugged in.
+    /// </summary>
+    public static TabletModel Active
+    {
+        get => _active ?? Artist16Third;
+        set => _active = value;
+    }
+
+    static TabletModel? _active;
+
+    /// <summary>
+    /// A model from what a tablet said it is: its range in its own units and their number per inch, its keys,
+    /// and, from the model list, its dials and whether it is a pen display. The body is the active area with a
+    /// margin, and a strip for the keys and dials on the left when there are any; the controls are spread
+    /// evenly along it. The Artist 16 3rd keeps its measured body.
+    /// </summary>
+    public static TabletModel FromAnswer(string name, ushort productId, int xMax, int yMax, int pressureMax, int unitsPerInch,
+        int keys, int dials, bool screen)
+    {
+        double width = xMax * 25.4 / unitsPerInch, height = yMax * 25.4 / unitsPerInch;
+        if (productId == Artist16Third.ProductId && xMax == 68199 && yMax == 38359 && keys == 8 && dials == 2)
+            return Artist16Third with { Name = name, PressureMax = pressureMax };
+
+        keys = Math.Clamp(keys, 0, 16);
+        dials = Math.Clamp(dials, 0, 2);
+        double margin = height * 0.09, strip = keys + dials > 0 ? width * 0.12 : margin;
+        double bodyWidth = strip + width + margin, bodyHeight = height + 2 * margin;
+        // Keys above and below the dials, the way the maker places them: half the keys, the dials, the rest.
+        int controls = keys + dials, upper = (keys + 1) / 2;
+        double step = controls > 0 ? 0.84 / Math.Max(controls, 6) : 0, top = 0.5 - step * controls / 2;
+        var keySpots = new List<ControlSpot>();
+        var dialSpots = new List<ControlSpot>();
+        for (int i = 0, place = 0; i < controls; i++, place++)
+        {
+            double center = top + step * (place + 0.5);
+            if (i >= upper && i < upper + dials)
+                dialSpots.Add(new ControlSpot(center, step * 1.1));
+            else
+                keySpots.Add(new ControlSpot(center, step * 0.8));
+        }
+        return new TabletModel(name, 0x28bd, productId, bodyWidth, bodyHeight, new RectD(strip, margin, width, height),
+            pressureMax, keySpots, dialSpots, screen);
+    }
+
     /// <summary>The share of the body the control strip takes on the key side.</summary>
-    public double ControlStripShare => 0.058;
+    public double ControlStripShare => ProductId == 0x097e ? 0.058 : ActiveAreaMm.X / WidthMm * 0.5;
 
     /// <summary>
     /// XPPen Artist 16 3rd. The body and the active area are the maker's figures; the active area is centered

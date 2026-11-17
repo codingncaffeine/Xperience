@@ -7,7 +7,8 @@ namespace Xperience.Core.Settings;
 /// <summary>What the tablet's controls do, for every application or for one.</summary>
 public sealed record Profile
 {
-    public const int KeyCount = 8, DialCount = 2, DialSlots = 4;
+    /// <summary>Room for the most keys and dials a tablet the driver takes has; a tablet uses as many as it has.</summary>
+    public const int KeyCount = 16, DialCount = 2, DialSlots = 4;
 
     /// <summary>The name shown on the profile's tab.</summary>
     public string Name { get; init; } = "All applications";
@@ -24,10 +25,18 @@ public sealed record Profile
     public PadAction PenUpper { get; init; } = PadAction.PenButton;
 
     /// <summary>The maker's own assignments for this tablet, top to bottom with the keys on the left.</summary>
-    public static IReadOnlyList<PadAction> DefaultKeys { get; } =
+    /// <remarks>A key that switches a dial the tablet does not have starts as nothing.</remarks>
+    public static IReadOnlyList<PadAction> DefaultKeys =>
+        [.. MakersKeys.Select(k => k.Kind == ActionKind.Special &&
+            ((k.Special == SpecialAct.SwitchDial1 && Tablets.TabletModel.Active.Dials.Count < 1) ||
+             (k.Special == SpecialAct.SwitchDial2 && Tablets.TabletModel.Active.Dials.Count < 2)) ? PadAction.Off : k)];
+
+    static IReadOnlyList<PadAction> MakersKeys { get; } =
     [
         PadAction.Do(SpecialAct.ShowXperience), PadAction.Shortcut("B"), PadAction.Shortcut("Alt"), PadAction.Do(SpecialAct.SwitchDial1),
         PadAction.Do(SpecialAct.SwitchDial2), PadAction.Shortcut("Space"), PadAction.Shortcut("Ctrl+S"), PadAction.Shortcut("Ctrl+Z"),
+        // Keys 9 to 16, on tablets that have them, start doing nothing.
+        PadAction.Off, PadAction.Off, PadAction.Off, PadAction.Off, PadAction.Off, PadAction.Off, PadAction.Off, PadAction.Off,
     ];
 
     public static IReadOnlyList<IReadOnlyList<DialFunction>> DefaultDials { get; } =

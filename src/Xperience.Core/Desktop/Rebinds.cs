@@ -94,10 +94,10 @@ public static class Assignments
         if (devices.PadName is { Length: > 0 } pad)
         {
             // The desktop knows the keys and dials by the tablet's own numbers; the profile has them as held.
-            for (int own = 0; own < Profile.KeyCount; own++)
+            for (int own = 0; own < Tablets.TabletModel.Active.Keys.Count; own++)
                 wanted.Add(new Rebind(Rebind.Keys, pad, own.ToString(CultureInfo.InvariantCulture),
                     config.KeysDisabled ? Off : Native(profile.Key(Tablets.HeldOrder.Key(own, turn))) ?? Off));
-            for (int own = 0; own < Profile.DialCount; own++)
+            for (int own = 0; own < Tablets.TabletModel.Active.Dials.Count; own++)
             {
                 int held = Tablets.HeldOrder.Dial(own, turn);
                 int slot = held < dialSlots.Count ? dialSlots[held] : 0;
@@ -123,7 +123,7 @@ public static class Assignments
 
     /// <summary>
     /// The tablet's keys the driver has to be told of because they are set to switch between pen and eraser:
-    /// the tablet's own numbers, 1 to 8, as digits in rising order. Only the profile for every application
+    /// the tablet's own numbers, 1 to 8, as digits in rising order (the driver can switch on the first eight). Only the profile for every application
     /// counts, since the driver cannot change with the application in front.
     /// </summary>
     public static string SwitchKeys(XperienceConfig config, TabletTurn turn)
@@ -131,9 +131,9 @@ public static class Assignments
         if (config.KeysDisabled)
             return "";
         var profile = config.DefaultProfile;
-        return string.Concat(Enumerable.Range(0, Profile.KeyCount)
+        return string.Concat(Enumerable.Range(0, Tablets.TabletModel.Active.Keys.Count)
             .Where(held => profile.Key(held) is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser })
-            .Select(held => Tablets.HeldOrder.Key(held, turn) + 1).Order().Select(own => (char)('0' + own)));
+            .Select(held => Tablets.HeldOrder.Key(held, turn) + 1).Where(own => own <= 8).Order().Select(own => (char)('0' + own)));
     }
 
     /// <summary>The next function of a dial that does something, after the one it is on.</summary>

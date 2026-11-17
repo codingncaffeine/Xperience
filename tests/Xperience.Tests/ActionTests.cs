@@ -103,7 +103,10 @@ public class PadActionTests
     public void The_makers_assignments_are_the_defaults()
     {
         Assert.Equal(["Show Xperience", "B", "Alt", "Switch dial 1 function", "Switch dial 2 function", "Space", "Ctrl+S", "Ctrl+Z"],
-            new Profile().Keys.Select(k => k.Label));
+            new Profile().Keys.Take(8).Select(k => k.Label));
+        // Room for the keys other tablets have past eight: they start doing nothing.
+        Assert.Equal(Profile.KeyCount, new Profile().Keys.Count);
+        Assert.All(new Profile().Keys.Skip(8), k => Assert.Equal(PadAction.Off, k));
         Assert.Equal(["Zoom", "Brush size"], new Profile().Dials.Select(d => d[0].Label));
         Assert.Equal(["Ctrl+Shift+Z", "Ctrl+Z", "Ctrl+Shift+N", "Ctrl+E", "]", "[", "Ctrl+S", "Show Xperience"],
             new FloatingMenuConfig().Buttons.Select(b => b.Label));

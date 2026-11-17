@@ -7,6 +7,10 @@
     <InternalsVisibleTo Include="Xperience.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The tablets the driver takes: the same list the driver and its probe are built from. -->
+    <EmbeddedResource Include="../../driver/models.tsv" LogicalName="models.tsv" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Tmds.DBus.Protocol" Version="$(TmdsDBusVersion)" />
   </ItemGroup>
 </Project>

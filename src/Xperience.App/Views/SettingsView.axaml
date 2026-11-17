@@ -73,6 +73,44 @@
                 </Grid>
             </Border>
 
+            <TextBlock Classes="heading" Text="KEYS AND DIALS" Margin="0,6,0,0" IsVisible="{Binding HasControls}" />
+            <Border Classes="card" IsVisible="{Binding HasControls}">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Text="Press each key and turn each dial both ways. Each one lights up when the driver hands it on." />
+                        <Button Grid.Column="1" Classes="action" Content="Start over" Command="{Binding RestartCheckCommand}" Margin="16,0,0,0" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Checks}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CheckItem">
+                                <Border Classes="check" Classes.seen="{Binding Seen}" CornerRadius="12" Padding="10,4" Margin="0,0,8,8">
+                                    <TextBlock Text="{Binding Name}" FontSize="12.5" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Classes="heading" Text="REPORT" Margin="0,6,0,0" />
+            <Border Classes="card">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Classes="about" Margin="0" TextWrapping="Wrap"
+                                   Text="{Binding ReportText}" />
+                        <SelectableTextBlock Text="{Binding ReportLine}" FontSize="12.5" Foreground="{DynamicResource XpTextMuted}" TextWrapping="Wrap"
+                                             IsVisible="{Binding ReportLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="action" Content="Save report" Command="{Binding SaveReportCommand}" Margin="16,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
             <TextBlock Classes="heading" Text="PEN RIGHT NOW" Margin="0,6,0,0" />
             <Border Classes="card">
                 <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">

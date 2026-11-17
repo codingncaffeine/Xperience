@@ -17,7 +17,8 @@
                 <PathIcon Data="{StaticResource IconUndo}" Width="16" Height="16" />
             </Button>
             <Button Grid.Column="2" Classes="action" MinHeight="36" Padding="14,4" FontSize="12.5" Content="Display settings"
-                    Command="{Binding Main.ShowDisplayCommand}" ToolTip.Tip="Brightness of the tablet's screen, and the way to the desktop's color settings" />
+                    Command="{Binding Main.ShowDisplayCommand}" IsVisible="{Binding Main.HasScreen}"
+                    ToolTip.Tip="Brightness of the tablet's screen, and the way to the desktop's color settings" />
         </Grid>
 
         <c:MappingDiagram Grid.Row="1" Margin="12,12,12,14" Screens="{Binding Screens}" TargetKind="{Binding TargetKind}"

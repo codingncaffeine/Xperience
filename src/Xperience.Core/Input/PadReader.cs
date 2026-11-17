@@ -73,10 +73,23 @@ public sealed class PadReader : IDisposable
         ushort type = BinaryPrimitives.ReadUInt16LittleEndian(record[16..]);
         ushort code = BinaryPrimitives.ReadUInt16LittleEndian(record[18..]);
         int value = BinaryPrimitives.ReadInt32LittleEndian(record[20..]);
-        if (type != KernelInput.EvKey || code < KernelInput.BtnMisc || code >= KernelInput.BtnMisc + 16 || value is not (0 or 1))
+        if (type != KernelInput.EvKey || value is not (0 or 1) || KeyIndex(code) is not { } key)
             return null;
-        return (code - KernelInput.BtnMisc, value == 1);
+        return (key, value == 1);
     }
+
+    /// <summary>
+    /// Which key a code is, from 0, as the driver numbers them: keys 1 to 10 are BTN_0 to BTN_9, keys 11 to 16 are
+    /// BTN_A and on (the order user space numbers a pad's buttons in); null for any other code.
+    /// </summary>
+    internal static int? KeyIndex(ushort code) => code switch
+    {
+        >= KernelInput.BtnMisc and < KernelInput.BtnMisc + 10 => code - KernelInput.BtnMisc,
+        >= BtnA and < BtnA + 6 => 10 + code - BtnA,
+        _ => null,
+    };
+
+    const ushort BtnA = 0x130;
 
     /// <summary>One record of the node as the kernel wrote it: type, code and value.</summary>
     internal static (ushort Type, ushort Code, int Value) Raw(ReadOnlySpan<byte> record) =>
@@ -85,7 +98,7 @@ public sealed class PadReader : IDisposable
     /// <summary>The kernel's names for what a tablet's keys and dials send, for the record; other codes as numbers.</summary>
     public static string Name(ushort type, ushort code) => (type, code) switch
     {
-        (KernelInput.EvKey, >= KernelInput.BtnMisc and < KernelInput.BtnMisc + 16) => $"key {code - KernelInput.BtnMisc + 1}",
+        (KernelInput.EvKey, _) when KeyIndex(code) is { } key => $"key {key + 1}",
         (KernelInput.EvKey, _) => $"key code {code}",
         (2, 6) => "REL_HWHEEL",
         (2, 8) => "REL_WHEEL",

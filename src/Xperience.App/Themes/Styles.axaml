@@ -30,6 +30,18 @@
         <Setter Property="Padding" Value="18" />
     </Style>
 
+    <!-- A key or dial in the check on the Settings page: an outline until it is seen, filled once it is. -->
+    <Style Selector="Border.check">
+        <Setter Property="BorderBrush" Value="{DynamicResource XpLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource XpTextMuted}" />
+    </Style>
+    <Style Selector="Border.check.seen">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpAccent}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+
     <!-- The sidebar's page buttons. -->
     <Style Selector="Button.nav">
         <Setter Property="Width" Value="60" />

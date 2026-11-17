@@ -64,12 +64,13 @@
 
         <TextBlock Grid.Row="3" Classes="muted" FontSize="12.5" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
                    MaxWidth="860" Margin="0,0,0,14" IsVisible="{Binding HasTablet}"
-                   Text="Click a key or a dial to change what it does. Each dial has four functions of your choosing and is on one of them; a key set to Switch dial 1 or Switch dial 2 moves that dial on to its next one." />
+                   Text="{Binding Hint}" />
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center">
             <Button Classes="action" MinWidth="180" Content="Floating menu" Command="{Binding Main.ShowFloatingMenuCommand}" />
             <Button Classes="action" MinWidth="180" Content="Work area" Command="{Binding Main.ShowWorkAreaCommand}" />
-            <Button Classes="action" MinWidth="180" Content="Display settings" Command="{Binding Main.ShowDisplayCommand}" />
+            <Button Classes="action" MinWidth="180" Content="Display settings" Command="{Binding Main.ShowDisplayCommand}"
+                    IsVisible="{Binding Main.HasScreen}" />
             <Button Classes="action" MinWidth="180" Content="Pen settings" Command="{Binding Main.ShowPenCommand}" />
         </StackPanel>
     </Grid>

@@ -51,6 +51,11 @@ static class Program
             // A desktop in memory, for screenshots and for looking at the window without a tablet. Nothing of
             // the real account is read or written: the settings live in a folder of the demo's own.
             string mode = demo.ToLowerInvariant();
+            // XPERIENCE_DEMO_TABLET=PRODUCT (hex) shows the window as that model from the list would have it.
+            if (Environment.GetEnvironmentVariable("XPERIENCE_DEMO_TABLET") is { Length: > 0 } shown &&
+                ushort.TryParse(shown, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out ushort product) &&
+                TabletDetector.Models.FirstOrDefault(m => m.ProductId == product) is { } listed)
+                TabletModel.Active = TabletModel.FromAnswer(listed.Name, product, 32000, 20000, 8191, 5080, listed.Keys, listed.Dials, listed.Screen);
             var presence = mode switch
             {
                 "absent" => TabletPresence.None,
@@ -94,8 +99,10 @@ static class Program
                     return 1;
                 }
             }
+            // The plugged-in tablet decides what the window shows; without one, the Artist 16 3rd.
+            TabletModel.Active = TabletDetector.Detect() ?? TabletModel.Artist16Third;
             compositor = KWinCompositor.ConnectAsync().GetAwaiter().GetResult();
-            scan = static () => TabletScanner.Scan(TabletModel.Artist16Third);
+            scan = static () => TabletScanner.Scan(TabletModel.Active);
             store = ConfigStore.ForThisAccount();
             injector = new UinputInjector();
             driver = DriverSetup.ForThisBuild();
@@ -164,7 +171,7 @@ static class Program
         var presence = scan();
         Console.WriteLine($"Tablet:   {presence.Mode}" + (presence.VendorAppRunning ? "  (the XPPen app is running)" : ""));
         if (presence.Mode != DriveMode.Absent)
-            Console.WriteLine($"  firmware      {new FirmwareReader().Read(TabletModel.Artist16Third) ?? "not readable by this account"}");
+            Console.WriteLine($"  firmware      {new FirmwareReader().Read(TabletModel.Active) ?? "not readable by this account"}");
         Console.WriteLine($"  pen node      {presence.PenNode ?? "-"}");
         Console.WriteLine($"  pad node      {presence.PadNode ?? "-"}");
         Console.WriteLine($"  keyboard node {presence.KeyboardNode ?? "-"}");
@@ -188,7 +195,7 @@ static class Program
             Console.WriteLine("Desktop:  none that Xperience can talk to");
             return 1;
         }
-        var snapshot = compositor.ReadAsync(TabletModel.Artist16Third).GetAwaiter().GetResult();
+        var snapshot = compositor.ReadAsync(TabletModel.Active).GetAwaiter().GetResult();
         Console.WriteLine($"Desktop:  {compositor.Name}");
         foreach (var screen in snapshot.Screens)
             Console.WriteLine($"  {screen.Label}  at {screen.Bounds.X:0},{screen.Bounds.Y:0}  scale {screen.Scale:0.##}  turned {(int)screen.Rotation}°");
@@ -221,7 +228,7 @@ static class Program
             Console.WriteLine("No desktop that Xperience can talk to.");
             return 1;
         }
-        var model = TabletModel.Artist16Third;
+        var model = TabletModel.Active;
         var before = compositor.ReadAsync(model).GetAwaiter().GetResult().Pen;
         if (before == null)
         {

@@ -41,6 +41,7 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
 
     public void Update()
     {
+        WatchControls();
         _loading = true;
         try
         {
@@ -116,6 +117,73 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         if (!main.Autostart.Set(value))
             main.Problem = "The autostart entry could not be changed.";
         Update();
+    }
+
+    /// <summary>The tablet's keys and dials, each lit once it has been seen working since the check began.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<CheckItem> Checks { get; } = [];
+    public bool HasControls => main.Model.Keys.Count + main.Model.Dials.Count > 0;
+
+    public string ReportText => "A text file about this tablet for its maintainers: which model it is and what it says it is, the driver, "
+        + (HasControls ? "the keys and dials seen above, " : "")
+        + "and the end of this session's record. It is saved in your home folder and goes nowhere until you send it.";
+    [ObservableProperty] private string _reportLine = "";
+    bool _watching;
+
+    void WatchControls()
+    {
+        if (_watching)
+            return;
+        _watching = true;
+        foreach (string name in TabletReport.Controls(main.Model))
+            Checks.Add(new CheckItem(name));
+        // Seen on the pad reader's thread; marked on the window's.
+        main.ControlSeen += name => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            foreach (var item in Checks)
+                if (item.Name == name)
+                    item.Seen = true;
+        });
+    }
+
+    /// <summary>Starts the key and dial check over.</summary>
+    [RelayCommand]
+    void RestartCheck()
+    {
+        foreach (var item in Checks)
+            item.Seen = false;
+    }
+
+    /// <summary>Writes the report about this tablet into the home folder, for its owner to send.</summary>
+    [RelayCommand]
+    async Task SaveReportAsync()
+    {
+        string[] state =
+        [
+            $"tablet   {TabletLine}", $"mode     {ModeLine}", $"driver   {DriverTitle}", $"desktop  {DesktopLine}",
+            $"pen      {PenLine}", $"mapped   {MappingLine}",
+        ];
+        var model = main.Model;
+        var checks = Checks.Select(c => new CheckedControl(c.Name, c.Seen)).ToList();
+        string? firmware = main.Firmware, logPath = main.LogPath;
+        ReportLine = "Writing the report…";
+        string? saved = await Task.Run(() =>
+        {
+            try
+            {
+                string kernel = File.Exists("/proc/sys/kernel/osrelease") ? File.ReadAllText("/proc/sys/kernel/osrelease").Trim() : "unknown";
+                string text = TabletReport.Build(new ReportFacts(version, kernel, model, TabletDetector.AnswerOf(model.ProductId),
+                    firmware, state, checks, logPath.Length > 0 ? TabletReport.Tail(logPath, 400) : []));
+                string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"xperience-report-{model.ProductId:x4}-{DateTime.Now:yyyyMMdd-HHmmss}.txt"));
+                File.WriteAllText(path, text);
+                return path;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        });
+        ReportLine = saved != null ? $"Saved as {saved}" : "The report could not be written into the home folder.";
     }
 
     /// <summary>Where the record of the session is kept; empty when there is none.</summary>
@@ -328,4 +396,11 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         Tilt = string.Create(culture, $"{sample.TiltX}°, {sample.TiltY}°");
         Tool = (sample.Eraser ? "Eraser" : "Pen") + (sample.Touching ? ", touching" : ", hovering");
     }
+}
+
+/// <summary>One key or dial direction in the check.</summary>
+public sealed partial class CheckItem(string name) : ObservableObject
+{
+    public string Name { get; } = name;
+    [ObservableProperty] private bool _seen;
 }

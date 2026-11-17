@@ -70,7 +70,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _watch.Tick += (_, _) => _ = WatchAsync();
     }
 
-    public TabletModel Model => TabletModel.Artist16Third;
+    public TabletModel Model => TabletModel.Active;
+
+    /// <summary>True for a pen display; a tablet without a screen has no display settings.</summary>
+    public bool HasScreen => Model.HasScreen;
     public string Version { get; }
     public string DesktopName => _compositor?.Name ?? "";
     public bool HasDesktop => _compositor != null;
@@ -94,6 +97,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>The tablet's firmware version as it reports it; null when it is not plugged in or may not be asked.</summary>
     public string? Firmware { get; private set; }
+
+    /// <summary>A key pressed or a dial turned, by its name in the key and dial check; raised on the reader's thread.</summary>
+    public event Action<string>? ControlSeen;
     public TabletPresence Presence { get; private set; } = TabletPresence.None;
     public DriverStatus DriverStatus { get; private set; } = new(false, false, false, DriverOptions.Default);
 
@@ -262,8 +268,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             {
                 old?.Dispose();
                 // Every event of the keys and dials goes into the record as the kernel wrote it, dial turns included.
-                var pad = PadReader.Open(padNode, (key, down) => _ = hub.KeyAsync(key, down),
-                    (type, code, value) => log.Write("pad", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{PadReader.Name(type, code)} = {value}")));
+                var pad = PadReader.Open(padNode, (key, down) =>
+                    {
+                        _ = hub.KeyAsync(key, down);
+                        if (down)
+                            ControlSeen?.Invoke(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Key {HeldOrder.Key(key, hub.Turn) + 1}"));
+                    },
+                    (type, code, value) =>
+                    {
+                        log.Write("pad", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{PadReader.Name(type, code)} = {value}"));
+                        // A dial step: REL_WHEEL is the tablet's first dial, REL_HWHEEL its second.
+                        if (type == KernelInput.EvRel && code is KernelInput.RelWheel or KernelInput.RelHWheel && value != 0)
+                            ControlSeen?.Invoke(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                                $"Dial {HeldOrder.Dial(code == KernelInput.RelWheel ? 0 : 1, hub.Turn) + 1} {(value > 0 ? "one way" : "other way")}"));
+                    });
                 if (padNode != null)
                     log.Write("pad", pad != null ? $"reading {padNode}" : $"{padNode} cannot be read by this account");
                 return pad;

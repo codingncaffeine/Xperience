@@ -13,7 +13,7 @@ namespace Xperience.App.Controls;
 static class TabletPainter
 {
     /// <summary>Where the parts ended up, for callers that label or connect them.</summary>
-    public sealed record Layout(Rect Body, Rect Surface, IReadOnlyList<Rect> Keys, IReadOnlyList<Rect> Dials, bool KeysOnRight);
+    public sealed record Layout(Rect Body, Rect Surface, IReadOnlyList<Rect> Keys, IReadOnlyList<Rect> Dials, bool KeysOnRight, bool Screen = true);
 
     public static Layout Measure(TabletModel model, Rect body, bool turned)
     {
@@ -32,14 +32,18 @@ static class TabletPainter
         return new Layout(body, surface,
             [.. model.Keys.Select(k => Control(k, strip))],
             [.. model.Dials.Select(d => Control(d, strip * 0.62))],
-            turned);
+            turned, model.HasScreen);
     }
 
     public static void Draw(DrawingContext context, Control owner, Layout layout, int highlightedKey = -1, int highlightedDial = -1)
     {
         double radius = layout.Body.Height * 0.045;
         context.DrawRectangle(Palette.Brush(owner, "XpTabletBody"), Palette.Pen(owner, "XpTabletEdge", 1.5), layout.Body, radius, radius);
-        context.DrawRectangle(Palette.Brush(owner, "XpTabletScreen"), null, layout.Surface, 2, 2);
+        // A pen display shows its screen; a tablet without one, the outline of the area the pen works on.
+        if (layout.Screen)
+            context.DrawRectangle(Palette.Brush(owner, "XpTabletScreen"), null, layout.Surface, 2, 2);
+        else
+            context.DrawRectangle(null, Palette.Pen(owner, "XpTabletKey", 2), layout.Surface.Deflate(1), 6, 6);
 
         var key = Palette.Brush(owner, "XpTabletKey");
         var accent = Palette.Brush(owner, "XpAccent");
