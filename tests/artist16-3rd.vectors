@@ -109,6 +109,29 @@ switch-key-back        | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0
 no-switch-key-press    | 02f0040000000000000000000000 | pad keys=3 wheel=0 pan=0
 no-switch-key-pen      | 02a0102700100000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0
 
+# Smoothing over three positions: each one handed on is the average of the latest three, fewer while there
+# are fewer. Nothing is averaged across the pen leaving, and the report of its leaving is left as it is.
+@smoothing 3
+smooth-first           | 02a0b80bb80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=3000 y=3000 p=0 tx=0 ty=0
+smooth-second          | 02a07017b80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=4500 y=3000 p=0 tx=0 ty=0
+smooth-third           | 02a0282370170000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=6000 y=4000 p=0 tx=0 ty=0
+smooth-fourth          | 02a1282370170010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=8000 y=5000 p=4096 tx=0 ty=0
+smooth-at-rest         | 02a1282370170010000000000000 | pen in=1 tip=1 b1=0 b2=0 inv=0 era=0 x=9000 y=6000 p=4096 tx=0 ty=0
+smooth-gone            | 02c0282370170000000000000000 | pen in=0 tip=0 b1=0 b2=0 inv=0 era=0 x=9000 y=6000 p=0 tx=0 ty=0
+smooth-return          | 02a030752c010000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=30000 y=300 p=0 tx=0 ty=0
+# The far corner stays the far corner: the third byte of each position is averaged with the rest.
+smooth-far-corner-1    | 02a0670ad7950000000001000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=49099 y=19329 p=0 tx=0 ty=0
+smooth-far-corner-2    | 02a0670ad7950000000001000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=55466 y=25672 p=0 tx=0 ty=0
+smooth-far-corner-3    | 02a0670ad7950000000001000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=68199 y=38359 p=0 tx=0 ty=0
+# Anything but 2 to 8 smooths nothing, so a typo cannot make the pen trail.
+@smoothing 12
+smooth-two-digits-1    | 02a0b80bb80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=3000 y=3000 p=0 tx=0 ty=0
+smooth-two-digits-2    | 02a07017b80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=6000 y=3000 p=0 tx=0 ty=0
+@smoothing 1
+smooth-one-1           | 02a0b80bb80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=3000 y=3000 p=0 tx=0 ty=0
+smooth-one-2           | 02a07017b80b0000000000000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=6000 y=3000 p=0 tx=0 ty=0
+@smoothing unset
+
 # Tilt switched off: the pen reports none, however it leans.
 @tilt off
 tilt-off               | 02a010270010000014ec00000000 | pen in=1 tip=0 b1=0 b2=0 inv=0 era=0 x=10000 y=4096 p=0 tx=0 ty=0

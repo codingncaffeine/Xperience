@@ -17,6 +17,7 @@ int run_device_event(unsigned char *data, unsigned long capacity, int size);
 void set_pen_upper_button(const char *value);
 void set_pen_lower_button(const char *value);
 void set_pen_switch_keys(const char *value);
+void set_pen_smoothing(const char *value);
 void forget_pen_state(void);
 void set_pen_tilt(const char *value);
 
@@ -140,6 +141,11 @@ int main(int argc, char **argv)
 		}
 		if (sscanf(line, " @switch-keys %63s", name) == 1) {
 			set_pen_switch_keys(strcmp(name, "unset") ? name : "");
+			forget_pen_state();
+			continue;
+		}
+		if (sscanf(line, " @smoothing %63s", name) == 1) {
+			set_pen_smoothing(strcmp(name, "unset") ? name : "");
 			forget_pen_state();
 			continue;
 		}

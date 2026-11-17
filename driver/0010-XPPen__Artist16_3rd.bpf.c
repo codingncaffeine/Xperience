@@ -124,6 +124,16 @@ char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
  */
 char UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS[16];
 
+/*
+ * How many of the pen's latest positions are averaged into the one handed on:
+ * "2" to "8". It takes the tremble out of slow lines, and the line trails the
+ * pen by about half that many reports. Unset, "1" or anything else hands every
+ * position on as it comes.
+ */
+char UDEV_PROP_XPERIENCE_PEN_SMOOTHING[16];
+
+#define SMOOTH_MOST 8
+
 #define ROLE_BUTTON 0
 #define ROLE_ERASER 1
 #define ROLE_TOGGLE 2
@@ -139,6 +149,11 @@ __u8 pen_buttons_held;
 __u8 pen_switched_to_eraser;
 /* The tablet's keys as last seen, for the same reason. */
 __u8 pad_keys_held;
+/* The positions being averaged, how many of them there are, and where the next one goes. */
+__u32 smooth_x[SMOOTH_MOST];
+__u32 smooth_y[SMOOTH_MOST];
+__u8 smooth_count;
+__u8 smooth_next;
 
 /* The keys named by XPERIENCE_PEN_SWITCH_KEYS, one bit each, as the tablet reports them. */
 static __always_inline __u8 switch_keys(void)
@@ -386,6 +401,43 @@ int BPF_PROG(xppen_artist16_3rd_device_event, struct hid_bpf_ctx *hctx)
 		    UDEV_PROP_XPERIENCE_PEN_TILT[1] == 'f') {
 			tilt_x = 0;
 			tilt_y = 0;
+		}
+
+		if (kind == RAW_KIND_PEN_GONE) {
+			/* The next visit starts afresh: nothing is averaged across the gap. */
+			smooth_count = 0;
+			smooth_next = 0;
+		} else {
+			char window = UDEV_PROP_XPERIENCE_PEN_SMOOTHING[0];
+
+			if (window >= '2' && window <= '0' + SMOOTH_MOST &&
+			    UDEV_PROP_XPERIENCE_PEN_SMOOTHING[1] == 0) {
+				__u32 x = x_low | x_mid << 8 | x_high << 16;
+				__u32 y = y_low | y_mid << 8 | y_high << 16;
+				__u32 sum_x = 0, sum_y = 0;
+				__u8 size = window - '0';
+				int i;
+
+				smooth_x[smooth_next & (SMOOTH_MOST - 1)] = x;
+				smooth_y[smooth_next & (SMOOTH_MOST - 1)] = y;
+				smooth_next = (smooth_next + 1) % size;
+				if (smooth_count < size)
+					smooth_count++;
+				for (i = 0; i < SMOOTH_MOST; i++) {
+					if (i < smooth_count) {
+						sum_x += smooth_x[i];
+						sum_y += smooth_y[i];
+					}
+				}
+				x = sum_x / smooth_count;
+				y = sum_y / smooth_count;
+				x_low = x;
+				x_mid = x >> 8;
+				x_high = x >> 16;
+				y_low = y;
+				y_mid = y >> 8;
+				y_high = y >> 16;
+			}
 		}
 
 		if (kind != RAW_KIND_PEN_GONE) {

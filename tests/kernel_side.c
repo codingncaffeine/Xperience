@@ -14,6 +14,9 @@ int xppen_artist16_3rd_device_event(struct hid_bpf_ctx *hctx);
 extern char UDEV_PROP_XPERIENCE_PEN_UPPER_BUTTON[16];
 extern char UDEV_PROP_XPERIENCE_PEN_LOWER_BUTTON[16];
 extern char UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS[16];
+extern char UDEV_PROP_XPERIENCE_PEN_SMOOTHING[16];
+extern unsigned char smooth_count;
+extern unsigned char smooth_next;
 extern unsigned char pad_keys_held;
 extern unsigned char pen_buttons_held;
 extern unsigned char pen_switched_to_eraser;
@@ -122,9 +125,16 @@ void set_pen_switch_keys(const char *value)
 	set_property(UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS, sizeof(UDEV_PROP_XPERIENCE_PEN_SWITCH_KEYS), value);
 }
 
-/* A freshly loaded program: nothing seen held, the pen not switched to its eraser. */
+void set_pen_smoothing(const char *value)
+{
+	set_property(UDEV_PROP_XPERIENCE_PEN_SMOOTHING, sizeof(UDEV_PROP_XPERIENCE_PEN_SMOOTHING), value);
+}
+
+/* A freshly loaded program: nothing seen held, the pen not switched to its eraser, no positions to average. */
 void forget_pen_state(void)
 {
+	smooth_count = 0;
+	smooth_next = 0;
 	pad_keys_held = 0;
 	pen_buttons_held = 0;
 	pen_switched_to_eraser = 0;

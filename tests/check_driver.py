@@ -197,6 +197,8 @@ CONTROLS = [
     ("a switch key does not switch the pen", "event", "switch-key-erasing", swap("0739", "0721"), "switch-key-erasing"),
     ("a switch key held switches back", "event", "switch-key-still", swap("0728", "0720"), "switch-key-still"),
     ("the second switch key does not switch back", "event", "switch-key-back", swap("0720", "0728"), "switch-key-back"),
+    ("smoothing hands on the raw position", "event", "smooth-third", swap("701700a00f00", "282300701700"), "smooth-third"),
+    ("a position from before the pen left is averaged in", "event", "smooth-return", swap("3075002c0100", "5c4e00201c00"), "smooth-return"),
     ("lower button still a button when set to erase", "event", "lower-as-eraser", swap("0728", "0722"), "lower-as-eraser"),
     ("the switch falls back to the pen when the button is let go", "event", "toggle-let-go", swap("0728", "0720"), "toggle-let-go"),
     ("holding the switch flips it again", "event", "toggle-still-held", swap("0728", "0720"), "toggle-still-held"),
