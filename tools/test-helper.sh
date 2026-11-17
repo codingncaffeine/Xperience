@@ -56,6 +56,8 @@ check "the rules carry the lower button choice" 'grep -q "ENV{XPERIENCE_PEN_LOWE
 check "the rules carry the switch keys" 'grep -q "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"36\"" "$rules"'
 check "the rules carry the tilt choice" 'grep -q "ENV{XPERIENCE_PEN_TILT}=\"off\"" "$rules"'
 check "the tablet nodes are opened to the person at the seat" 'grep -q "ATTRS{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
+check "the tablet's USB node is opened to the person at the seat" 'grep -q "SUBSYSTEM==\"usb\".*ATTR{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
+check "and looked at again, the tablet's maker only" 'grep -qx "udevadm trigger --action=change --subsystem-match=usb --attr-match=idVendor=28bd" "$work/calls"'
 check "the virtual keyboard is opened to the person at the seat" 'grep -q "KERNEL==\"uinput\".*TAG+=\"uaccess\"" "$rules"'
 check "udev is told to read its rules again" 'grep -qx "udevadm control --reload" "$work/calls"'
 check "the driver is loaded for each of the tablet's interfaces with the options" \
@@ -101,17 +103,58 @@ refused "an unknown verb" purge
 refused "no verb"
 check "a refusal calls nothing and writes nothing" '[ ! -s "$work/calls" ] && [ ! -e "$rules" ]'
 
-# Without the loader the helper stops with the exit code that says so.
+# Without the loader. These runs see nothing of this machine's own programs but the few plain tools the helper
+# uses, so that no real package manager can be reached from a test.
 rm "$work/bin/udev-hid-bpf"
+mkdir -p "$work/tools"
+for tool in sh basename dirname mkdir cat mv rm grep mktemp tail cp chmod; do
+	ln -sf "$(command -v "$tool")" "$work/tools/$tool"
+done
+bare() { PATH="$work/bin:$work/tools" XPERIENCE_ROOT="$fake" "$helper" "$@"; }
+
+# No package manager it knows: it stops with the exit code that says the loader is missing, and says which package.
+: > "$work/calls"
 set +e
-PATH="$work/bin:/usr/bin:/bin" XPERIENCE_ROOT="$fake" "$helper" install "$work/$name" eraser on button none > /dev/null 2>&1
+said=$(bare install "$work/$name" eraser on button none 2>&1)
 code=$?
 set -e
-if command -v udev-hid-bpf > /dev/null 2>&1; then
-	echo "driver helper: the loader is installed on this machine, so its absence could not be played"
-else
-	check "a missing loader is exit code 3" '[ "$code" = 3 ]'
-fi
+check "a missing loader with no known package manager is exit code 3" '[ "$code" = 3 ]'
+check "it names the package" 'echo "$said" | grep -q "udev-hid-bpf"'
+check "and nothing was installed or loaded" '[ ! -s "$work/calls" ]'
+
+# With the distribution's package manager at hand it installs the loader itself and goes on.
+cat > "$work/bin/pacman" <<STUB
+#!/bin/sh
+echo "pacman \$*" >> "$work/calls"
+cat > "$work/bin/udev-hid-bpf" <<LOADER
+#!/bin/sh
+echo "udev-hid-bpf \\\$*" >> "$work/calls"
+LOADER
+chmod +x "$work/bin/udev-hid-bpf"
+STUB
+chmod +x "$work/bin/pacman"
+: > "$work/calls"
+bare install "$work/$name" eraser on button none
+check "a missing loader is installed with the package manager" 'grep -qx "pacman -S --needed --noconfirm udev-hid-bpf" "$work/calls"'
+check "and the driver is then handed to it" 'grep -q "^udev-hid-bpf install --force" "$work/calls"'
+check "in that order" '[ "$(grep -n "^pacman" "$work/calls" | cut -d: -f1)" -lt "$(grep -n "^udev-hid-bpf install" "$work/calls" | cut -d: -f1)" ]'
+
+# A package manager that fails leaves the driver uninstalled and says so.
+rm "$work/bin/udev-hid-bpf" "$rules"
+printf '#!/bin/sh\necho "error: failed retrieving file" >&2\nexit 1\n' > "$work/bin/pacman"
+: > "$work/calls"
+set +e
+said=$(bare install "$work/$name" eraser on button none 2>&1)
+code=$?
+set -e
+check "a package manager that fails is exit code 3" '[ "$code" = 3 ]'
+check "what it said is passed on" 'echo "$said" | grep -q "failed retrieving file"'
+check "and no rules were written" '[ ! -e "$rules" ]'
+
+# Removing still takes the rules away when the loader is gone.
+mkdir -p "$(dirname "$rules")" && : > "$rules"
+bare remove
+check "remove works without the loader" '[ ! -e "$rules" ]'
 
 if [ "$failures" -ne 0 ]; then
 	echo "driver helper: $failures checks failed"

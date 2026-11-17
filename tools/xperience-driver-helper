@@ -7,7 +7,7 @@
 #       KEYS: the tablet keys that switch between pen and eraser, as digits 1 to 8, or none.
 #   xperience-driver-helper remove
 #
-# install: hands the driver to udev-hid-bpf, writes the udev rules that carry the pen's options and let the
+# install: brings udev-hid-bpf from the distribution when it is missing, hands the driver to it, writes the udev rules that carry the pen's options and let the
 #          person at the seat read the tablet's input nodes and create the virtual keyboard, then loads the
 #          driver for a tablet that is plugged in.
 # remove:  unloads the driver, puts the tablet back into the mode it comes in, and takes those files away again.
@@ -49,9 +49,36 @@ reload_rules() {
 	udevadm control --reload
 	# Access for the person at the seat is granted when the nodes are looked at again.
 	udevadm trigger --action=change --subsystem-match=input --subsystem-match=misc || true
+	udevadm trigger --action=change --subsystem-match=usb --attr-match=idVendor=28bd || true
 }
 
-command -v udev-hid-bpf > /dev/null 2>&1 || fail "udev-hid-bpf is not installed." 3
+# The driver is loaded by udev-hid-bpf, which comes from the distribution and is not on every system. When it
+# is missing, installing the driver brings it along through the system's own package manager, so nobody has to
+# type a command for it.
+install_loader() {
+	log=$(mktemp)
+	if command -v pacman > /dev/null 2>&1; then
+		pacman -S --needed --noconfirm udev-hid-bpf > "$log" 2>&1
+	elif command -v apt-get > /dev/null 2>&1; then
+		DEBIAN_FRONTEND=noninteractive apt-get install -y udev-hid-bpf > "$log" 2>&1
+	elif command -v dnf > /dev/null 2>&1; then
+		dnf install -y udev-hid-bpf > "$log" 2>&1
+	elif command -v zypper > /dev/null 2>&1; then
+		zypper --non-interactive install udev-hid-bpf > "$log" 2>&1
+	elif command -v apk > /dev/null 2>&1; then
+		apk add udev-hid-bpf > "$log" 2>&1
+	else
+		rm -f "$log"
+		fail "The package udev-hid-bpf, which loads the driver, is not installed, and this system's package manager is not one Xperience knows. Install udev-hid-bpf, then try again." 3
+	fi || {
+		tail -n 3 "$log" >&2
+		rm -f "$log"
+		fail "The package udev-hid-bpf, which loads the driver, could not be installed. If the system has updates waiting, install them and try again." 3
+	}
+	rm -f "$log"
+	command -v udev-hid-bpf > /dev/null 2>&1 || fail "The package udev-hid-bpf was installed, but its program is not there." 3
+}
+
 command -v udevadm > /dev/null 2>&1 || fail "udevadm is not installed." 3
 
 case "${1:-}" in
@@ -72,6 +99,8 @@ install)
 	*[!1-8]* | "" | ?????????*) fail "The switch keys are digits 1 to 8, or none, not $keys." 2 ;;
 	esac
 
+	command -v udev-hid-bpf > /dev/null 2>&1 || install_loader
+
 	udev-hid-bpf install --force "$object"
 
 	mkdir -p "$(dirname "$rules")"
@@ -84,6 +113,9 @@ install)
 # Xperience types shortcuts with.
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", TAG+="uaccess"
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+
+# The person at the seat may ask the tablet for its firmware version, which it keeps among its USB descriptors.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28bd", ATTR{idProduct}=="097e", TAG+="uaccess"
 
 # What the driver is loaded with.
 SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys"
@@ -100,9 +132,12 @@ RULES
 	;;
 remove)
 	[ "$#" -eq 1 ] || fail "usage: $0 remove" 2
-	for device in $(devices); do
-		udev-hid-bpf remove "$device" || true
-	done
+	# Without the loader nothing of ours can be loaded, and there is nothing to unload.
+	if command -v udev-hid-bpf > /dev/null 2>&1; then
+		for device in $(devices); do
+			udev-hid-bpf remove "$device" || true
+		done
+	fi
 	# The tablet's nodes are made anew when the driver lets go of it.
 	udevadm settle --timeout=5 || true
 	leave_raw_mode
