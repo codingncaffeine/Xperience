@@ -202,6 +202,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     _synced = snapshot.Devices;
                     await Hub.SyncAsync();
                 }
+
                 Show();
             }
             while (_refreshAgain);
@@ -360,6 +361,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Problem = null;
         await Hub.UseAsync(change(Hub.Config));
         await RefreshAsync();
+        await Settings.SyncDriverAsync();
     }
 
     public Task IdentifyScreensAsync() => _compositor is { } compositor ? Task.Run(() => compositor.IdentifyScreensAsync()) : Task.CompletedTask;

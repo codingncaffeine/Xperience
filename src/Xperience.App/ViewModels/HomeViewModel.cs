@@ -76,7 +76,7 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
         int index = HeldOrder.Key(own, main.Snapshot.Pen?.Turn ?? TabletTurn.None);
         var profile = main.EditingProfile;
         var result = await main.Dialogs.EditActionAsync(new ActionRequest(
-            string.Create(CultureInfo.InvariantCulture, $"Key {index + 1}"), profile.Key(index), Profile.DefaultKeys[index]));
+            string.Create(CultureInfo.InvariantCulture, $"Key {index + 1}"), profile.Key(index), Profile.DefaultKeys[index]) { ForDriverKey = profile.IsDefault });
         if (result != null)
             await main.ChangeConfigAsync(c => c.Change(profile.App, p => p.WithKey(index, result)));
     }

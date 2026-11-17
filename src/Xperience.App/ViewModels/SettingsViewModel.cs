@@ -154,8 +154,28 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         }
     }
 
+    /// <summary>The driver's options with the switch keys the settings ask for right now.</summary>
+    DriverOptions WantedOptions() => main.DriverStatus.Options with
+    {
+        SwitchKeys = Assignments.SwitchKeys(main.Config, main.Snapshot.Pen?.Turn ?? TabletTurn.None),
+    };
+
+    /// <summary>
+    /// Reloads the driver when the keys set to switch between pen and eraser are not the ones it was loaded
+    /// with. Called after the settings or the tablet's rotation changed; does nothing when they agree, and
+    /// nothing where the driver is not in place, since installing it later takes the keys along.
+    /// </summary>
+    public Task SyncDriverAsync()
+    {
+        var status = main.DriverStatus;
+        var wanted = WantedOptions();
+        if (main.Presence.Mode != DriveMode.Driver || !status.Installed || !status.CanInstall || !status.LoaderInstalled || wanted.SwitchKeys == status.Options.SwitchKeys)
+            return Task.CompletedTask;
+        return InstallDriverAsync(wanted);
+    }
+
     [RelayCommand]
-    Task InstallDriver() => main.Pending = InstallDriverAsync(main.DriverStatus.Options);
+    Task InstallDriver() => main.Pending = InstallDriverAsync(WantedOptions());
 
     /// <summary>Installs or reloads the driver with the given options, then gives the pen its settings back.</summary>
     public async Task InstallDriverAsync(DriverOptions options)
@@ -168,7 +188,7 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             var before = main.Snapshot.Pen;
             var driver = main.Driver;
             var (ok, problem) = await Task.Run(() => driver.InstallAsync(options));
-            main.Log.Write("driver", $"install with upper button {DriverOptions.Word(options.Upper)}, lower button {DriverOptions.Word(options.Lower)}, tilt {(options.TiltOff ? "off" : "on")}: {(ok ? "done" : "failed: " + problem)}");
+            main.Log.Write("driver", $"install with upper button {DriverOptions.Word(options.Upper)}, lower button {DriverOptions.Word(options.Lower)}, tilt {(options.TiltOff ? "off" : "on")}, switch keys {(options.SwitchKeys.Length > 0 ? options.SwitchKeys : "none")}: {(ok ? "done" : "failed: " + problem)}");
             await AfterDriverChangeAsync(ok, problem, before);
         }
         finally

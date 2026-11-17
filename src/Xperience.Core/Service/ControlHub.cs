@@ -168,7 +168,7 @@ public sealed class ControlHub : IDisposable
         bool ours = Assignments.NeedsXperience(action);
         if (down)
             Log.Write("key", string.Create(CultureInfo.InvariantCulture,
-                $"key {index + 1} as held (the tablet's key {own + 1}) pressed: {action.Describe()}, carried out by {(ours ? "Xperience" : action.Kind == ActionKind.Disabled ? "nobody" : "the desktop")}"));
+                $"key {index + 1} as held (the tablet's key {own + 1}) pressed: {action.Describe()}, carried out by {(ours ? "Xperience" : action.Kind == ActionKind.Disabled ? "nobody" : action is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser } ? "the driver" : "the desktop")}"));
         if (down && config.Hints && action.Kind != ActionKind.Disabled && !IsDialSwitch(action))
             await HintAsync(action.Label).ConfigureAwait(false);
         if (ours)

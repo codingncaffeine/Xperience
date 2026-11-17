@@ -42,6 +42,9 @@ public static class Assignments
         {
             case ActionKind.Disabled:
                 return Off;
+            case ActionKind.Special when action.Special == SpecialAct.PenEraser:
+                // The driver switches the pen when it sees the key; the desktop has nothing to do for it.
+                return Off;
             case ActionKind.Shortcut:
                 return action.Combos is [var only] && only.ToDesktop() is { } keys ? "Key," + Escape(keys) : null;
             case ActionKind.Mouse:
@@ -116,6 +119,21 @@ public static class Assignments
     {
         var have = current.ToDictionary(r => r.Id, r => r.Value);
         return [.. desired.Where(d => have.GetValueOrDefault(d.Id, "") != d.Value)];
+    }
+
+    /// <summary>
+    /// The tablet's keys the driver has to be told of because they are set to switch between pen and eraser:
+    /// the tablet's own numbers, 1 to 8, as digits in rising order. Only the profile for every application
+    /// counts, since the driver cannot change with the application in front.
+    /// </summary>
+    public static string SwitchKeys(XperienceConfig config, TabletTurn turn)
+    {
+        if (config.KeysDisabled)
+            return "";
+        var profile = config.DefaultProfile;
+        return string.Concat(Enumerable.Range(0, Profile.KeyCount)
+            .Where(held => profile.Key(held) is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser })
+            .Select(held => Tablets.HeldOrder.Key(held, turn) + 1).Order().Select(own => (char)('0' + own)));
     }
 
     /// <summary>The next function of a dial that does something, after the one it is on.</summary>

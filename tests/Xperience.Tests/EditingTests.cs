@@ -446,7 +446,7 @@ public class EditingTests
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
 
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button none"], bench.Elevated);
         var pen = await bench.PenAsync();
         Assert.Equal("XPPen Artist 16 3rd Stylus", pen.Name);
         Assert.Equal((before.TargetKind, before.TargetScreen, before.Flipped, before.ScreenArea), (pen.TargetKind, pen.TargetScreen, pen.Flipped, pen.ScreenArea));
@@ -507,11 +507,11 @@ public class EditingTests
 
         main.Pen.TiltOn = false;
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off button"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser off button none"], bench.Elevated);
 
         main.Pen.UpperRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
         await main.Pending;
-        Assert.Equal($"install {DriverSetup.ObjectName} button on button", bench.Elevated[^1]);
+        Assert.Equal($"install {DriverSetup.ObjectName} button on button none", bench.Elevated[^1]);
     });
 
     [Fact]
@@ -536,8 +536,96 @@ public class EditingTests
 
         main.Pen.LowerRole = main.Pen.Roles.Single(r => r.Role == PenButtonRole.Button);
         await main.Pending;
-        Assert.Equal([$"install {DriverSetup.ObjectName} toggle on button"], bench.Elevated);
+        Assert.Equal([$"install {DriverSetup.ObjectName} toggle on button none"], bench.Elevated);
     });
+
+    [Fact]
+    public Task A_key_set_to_pen_eraser_is_handed_to_the_driver_and_follows_the_tablets_turn() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync(Bench.Driven, upright: true);
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev/rules.d"));
+        Directory.CreateDirectory(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf"));
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"), "");
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev-hid-bpf", DriverSetup.ObjectName), "");
+        var main = bench.Main;
+        await main.RefreshAsync();
+        bench.Dialogs.Action = request =>
+        {
+            Assert.True(request.ForDriverKey);
+            return PadAction.Do(SpecialAct.PenEraser);
+        };
+
+        // The third key from the top. The driver is told, since only it can change the pen's tool.
+        await main.Home.EditKey(2);
+        await main.Pending;
+        Assert.Equal([$"install {DriverSetup.ObjectName} eraser on button 3"], bench.Elevated);
+        Assert.Equal("Disabled", bench.Desktop.Binding(Rebind.Keys, "2"));
+        Assert.Equal("Pen/Eraser", main.Home.KeyLabels[2]);
+
+        // The stand-in helper writes no rules, so the driver still counts as loaded without the key: turned
+        // around, the third key as held is the tablet's own sixth, and that is what the driver is told then.
+        main.WorkArea.SelectedTurn = main.WorkArea.Turns.Single(t => t.Turn == TabletTurn.Half);
+        await main.Pending;
+        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button 6", bench.Elevated[^1]);
+
+        // With the rules saying so already, nothing is reloaded.
+        File.WriteAllText(Path.Combine(bench.SystemFolder, "etc/udev/rules.d/70-xperience.rules"), "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"6\"\n");
+        await main.RefreshAsync();
+        int before = bench.Elevated.Count;
+        await main.ChangeConfigAsync(c => c with { Hints = !c.Hints });
+        Assert.Equal(before, bench.Elevated.Count);
+
+        // Given another job, the key is taken back from the driver.
+        bench.Dialogs.Action = _ => PadAction.Shortcut("Alt");
+        await main.Home.EditKey(5);
+        await main.Pending;
+        Assert.Equal($"install {DriverSetup.ObjectName} eraser on button none", bench.Elevated[^1]);
+    });
+
+    [Fact]
+    public Task Pen_eraser_is_offered_for_a_key_only_where_the_driver_can_carry_it_out() => OnUi(async () =>
+    {
+        using var bench = await Bench.OpenAsync(upright: true);
+        var main = bench.Main;
+        ActionRequest? seen = null;
+        bench.Dialogs.Action = request =>
+        {
+            seen = request;
+            return null;
+        };
+        await main.Home.EditKey(0);
+        Assert.True(seen!.ForDriverKey);
+        Assert.Contains(new ActionDialogViewModel(seen).Others, o => o.Label == "Pen/Eraser");
+
+        // A profile for one application cannot have it: the driver does not change with the application.
+        bench.Dialogs.App = running => running[0];
+        await main.Home.AddProfile();
+        await main.Home.EditKey(0);
+        Assert.False(seen!.ForDriverKey);
+        Assert.DoesNotContain(new ActionDialogViewModel(seen).Others, o => o.Label == "Pen/Eraser");
+
+        // Neither can a pen button, which has its own setting for this, nor a button of the floating menu.
+        await main.Pen.EditLower();
+        Assert.False(seen!.ForDriverKey);
+    });
+
+    [Fact]
+    public void The_keys_the_driver_is_told_of_are_the_tablets_own_numbers_in_order()
+    {
+        var config = XperienceConfig.Default.Completed().Change("", p => p.WithKey(2, PadAction.Do(SpecialAct.PenEraser)).WithKey(0, PadAction.Do(SpecialAct.PenEraser)));
+        Assert.Equal("13", Assignments.SwitchKeys(config, TabletTurn.None));
+        Assert.Equal("13", Assignments.SwitchKeys(config, TabletTurn.ThreeQuarter));
+        Assert.Equal("68", Assignments.SwitchKeys(config, TabletTurn.Half));
+        Assert.Equal("68", Assignments.SwitchKeys(config, TabletTurn.Quarter));
+        Assert.Equal("", Assignments.SwitchKeys(config with { KeysDisabled = true }, TabletTurn.None));
+        Assert.Equal("", Assignments.SwitchKeys(XperienceConfig.Default.Completed(), TabletTurn.None));
+
+        var action = PadAction.Do(SpecialAct.PenEraser);
+        Assert.Equal("Disabled", Assignments.Native(action));
+        Assert.False(Assignments.NeedsXperience(action));
+        Assert.Equal("36", DriverOptions.Keys("6a3 3-9"));
+        Assert.Equal("", DriverOptions.Keys(null));
+    }
 
     [Fact]
     public void A_word_the_driver_does_not_know_leaves_a_pen_button_as_it_comes()

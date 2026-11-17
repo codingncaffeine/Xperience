@@ -43,7 +43,8 @@ Out of the box the tablet's keys and dials type fixed key combinations. With the
 shows up as:
 
 - a pen with 16383 pressure levels and tilt, its lower button a button and its upper button an eraser, as
-  out of the box; either button can be set to be a button, an eraser while held, or a pen/eraser switch
+  out of the box; either button can be set to be a button, an eraser while held, or a pen/eraser switch,
+  and so can any of the tablet's keys
 - a pad with 8 keys and 2 dials
 
 The settings window installs and removes it (Settings, Driver); that asks for administrator rights and needs
@@ -57,8 +58,8 @@ tools/test.sh            # every test: the driver's, the install helper's and th
 
 ## Not here yet
 
-The pen/eraser switch on a tablet key (it is there for the pen's own buttons), the firmware version in the
-diagnostics, languages other than English, and tablets other than the Artist 16 3rd.
+The firmware version in the diagnostics, languages other than English, and tablets other than the
+Artist 16 3rd.
 
 ## License
 

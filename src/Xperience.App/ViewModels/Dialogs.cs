@@ -12,7 +12,14 @@ namespace Xperience.App.ViewModels;
 /// What the assignment dialog is asked to edit. A pen button can also stay a plain pen button; a floating-menu
 /// button has no mouse actions and is always carried out by Xperience.
 /// </summary>
-public sealed record ActionRequest(string Title, PadAction Current, PadAction Default, bool ForPenButton = false, bool ForMenu = false);
+public sealed record ActionRequest(string Title, PadAction Current, PadAction Default, bool ForPenButton = false, bool ForMenu = false)
+{
+    /// <summary>
+    /// True for a key of the tablet in the profile for every application: there the key can be the switch
+    /// between pen and eraser, which the driver carries out and so cannot change with the application.
+    /// </summary>
+    public bool ForDriverKey { get; init; }
+}
 
 /// <summary>What the area dialog is asked to edit: a rectangle on a surface, shown in the surface's own units.</summary>
 public sealed record AreaRequest(string Title, string Hint, RectD Area, double UnitsWide, double UnitsHigh, string Unit, int Decimals,
@@ -96,6 +103,9 @@ public sealed partial class ActionDialogViewModel : ObservableObject
         foreach (var act in (SpecialAct[])[SpecialAct.ShowXperience, SpecialAct.SwitchMonitor, SpecialAct.PrecisionMode, SpecialAct.BrushEraser,
             SpecialAct.SwitchDial1, SpecialAct.SwitchDial2, SpecialAct.FloatingMenu, SpecialAct.ShowDesktop, SpecialAct.ScreenKeyboard])
             others.Add(new OtherChoice(PadAction.SpecialName(act), ActionKind.Special, act));
+        if (request.ForDriverKey || request.Current is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser })
+            others.Insert(others.FindIndex(o => o.Special == SpecialAct.BrushEraser && o.Kind == ActionKind.Special) + 1,
+                new OtherChoice(PadAction.SpecialName(SpecialAct.PenEraser), ActionKind.Special, SpecialAct.PenEraser));
         others.Add(new OtherChoice("Disable", ActionKind.Disabled));
         Others = others;
         Load(request.Current);
@@ -176,6 +186,7 @@ public sealed partial class ActionDialogViewModel : ObservableObject
         Note = _request.ForMenu ? ""
             : action.Kind == ActionKind.Default ? "The button stays a plain pen button, and each application decides what it does."
             : action.Kind == ActionKind.Disabled ? "The control does nothing."
+            : action is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser } ? "The driver carries this out: each press switches between pen and eraser. Setting it reloads the driver, which asks for administrator rights."
             : Assignments.NeedsXperience(action) ? "Xperience carries this out itself, so it has to be running."
             : "The desktop carries this out by itself, whether or not Xperience is running.";
     }

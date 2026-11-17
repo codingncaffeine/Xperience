@@ -39,7 +39,7 @@ by tests; the rows that depend on the driver say so.
 | Precision mode | Yes, differently | XPPen maps the tablet onto a fixed 320 × 210 pixel box at the pointer, left with the key or Esc. Xperience maps it onto a third of the screen area around the pen, left with the key. |
 | [B]/[E]: brush and eraser shortcuts in turn | Yes | |
 | Pen/Eraser on a pen button: switch between pen and eraser | Yes | Set under Pen, Options, as what the button is to the driver. Needs the driver. |
-| Pen/Eraser on a tablet key | Not yet | |
+| Pen/Eraser on a tablet key | Yes, differently | In the profile for all applications only: the driver carries it out, and the driver does not change with the application in front. Setting it reloads the driver. |
 | Eraser while a pen button is held | Yes | The upper button does this out of the box. |
 | Switch roller 1 / roller 2 function | Yes | |
 | Disable | Yes | |

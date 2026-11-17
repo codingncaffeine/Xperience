@@ -23,6 +23,12 @@ public sealed record DriverOptions(PenButtonRole Upper, PenButtonRole Lower, boo
 {
     public static readonly DriverOptions Default = new(PenButtonRole.Eraser, PenButtonRole.Button, false);
 
+    /// <summary>The tablet's keys that switch between pen and eraser: its own numbers, 1 to 8, as digits; empty for none.</summary>
+    public string SwitchKeys { get; init; } = "";
+
+    /// <summary>Digits 1 to 8, each once, in rising order: what the driver and its helper take for the switch keys.</summary>
+    public static string Keys(string? text) => string.Concat((text ?? "").Where(c => c is >= '1' and <= '8').Distinct().Order());
+
     /// <summary>The word the driver knows a role by.</summary>
     public static string Word(PenButtonRole role) => role switch
     {
@@ -99,7 +105,10 @@ public sealed class DriverSetup
             return new DriverOptions(
                 DriverOptions.Role(Property(rules, "XPERIENCE_PEN_UPPER_BUTTON"), DriverOptions.Default.Upper),
                 DriverOptions.Role(Property(rules, "XPERIENCE_PEN_LOWER_BUTTON"), DriverOptions.Default.Lower),
-                Property(rules, "XPERIENCE_PEN_TILT") == "off");
+                Property(rules, "XPERIENCE_PEN_TILT") == "off")
+            {
+                SwitchKeys = DriverOptions.Keys(Property(rules, "XPERIENCE_PEN_SWITCH_KEYS")),
+            };
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -126,7 +135,8 @@ public sealed class DriverSetup
             return (false, "This build does not carry the driver.");
         if (!status.LoaderInstalled)
             return (false, $"The system's driver loader is missing. Install the package {LoaderPackage} first.");
-        return Outcome(await _elevate([_helperPath, "install", _objectPath, DriverOptions.Word(options.Upper), options.TiltOff ? "off" : "on", DriverOptions.Word(options.Lower)]).ConfigureAwait(false));
+        return Outcome(await _elevate([_helperPath, "install", _objectPath, DriverOptions.Word(options.Upper), options.TiltOff ? "off" : "on", DriverOptions.Word(options.Lower),
+            DriverOptions.Keys(options.SwitchKeys) is { Length: > 0 } keys ? keys : "none"]).ConfigureAwait(false));
     }
 
     /// <summary>Unloads the driver and takes its files away again. Asks for administrator rights.</summary>

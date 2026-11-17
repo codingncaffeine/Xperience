@@ -213,6 +213,9 @@ public sealed partial class WorkAreaViewModel(MainViewModel main) : ObservableOb
             if (pen.CanSetMatrix && !pen.Matrix.IsCloseTo(matrix, 0.0002))
                 await desktop.SetMatrixAsync(id, matrix).ConfigureAwait(false);
         });
+        // Turned another way, the keys the driver knows as the pen/eraser switch are other keys of the tablet.
+        // This runs after the write and its refresh are over: reloading the driver refreshes again.
+        await main.Settings.SyncDriverAsync();
     }
 
     [RelayCommand]

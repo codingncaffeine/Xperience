@@ -44,6 +44,9 @@ public enum SpecialAct
     FloatingMenu,
     ShowDesktop,
     ScreenKeyboard,
+
+    /// <summary>Switches between pen and eraser. The driver does this itself, for the keys it is told of.</summary>
+    PenEraser,
 }
 
 /// <summary>What one control does. Only the fields of its kind matter; the rest stay at their defaults.</summary>
@@ -113,6 +116,7 @@ public sealed record PadAction
         SpecialAct.SwitchDial2 => "Switch dial 2 function",
         SpecialAct.FloatingMenu => "Floating menu",
         SpecialAct.ShowDesktop => "Show desktop",
+        SpecialAct.PenEraser => "Pen/Eraser",
         _ => "Screen keyboard",
     };
 

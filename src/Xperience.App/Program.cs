@@ -174,6 +174,7 @@ static class Program
             $"this build {(status.CanInstall ? "carries it" : "does not carry it")}");
         Console.WriteLine($"  upper button  {DriverOptions.Word(status.Options.Upper)}");
         Console.WriteLine($"  lower button  {DriverOptions.Word(status.Options.Lower)}");
+        Console.WriteLine($"  switch keys   {(status.Options.SwitchKeys.Length > 0 ? status.Options.SwitchKeys : "none")}");
         Console.WriteLine($"  tilt          {(status.Options.TiltOff ? "off" : "on")}");
         var config = store.Load();
         Console.WriteLine($"Settings: {store.ConfigPath}");
