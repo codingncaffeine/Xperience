@@ -49,22 +49,23 @@ check() {
 run() { PATH="$work/bin:$PATH" XPERIENCE_ROOT="$fake" "$helper" "$@"; }
 rules="$fake/etc/udev/rules.d/70-xperience.rules"
 
-run install "$work/$name" button off toggle
+run install "$work/$name" button off toggle 36
 check "the driver object is installed" '[ -f "$fake/etc/udev-hid-bpf/$name" ]'
 check "the rules carry the upper button choice" 'grep -q "ENV{XPERIENCE_PEN_UPPER_BUTTON}=\"button\"" "$rules"'
 check "the rules carry the lower button choice" 'grep -q "ENV{XPERIENCE_PEN_LOWER_BUTTON}=\"toggle\"" "$rules"'
+check "the rules carry the switch keys" 'grep -q "ENV{XPERIENCE_PEN_SWITCH_KEYS}=\"36\"" "$rules"'
 check "the rules carry the tilt choice" 'grep -q "ENV{XPERIENCE_PEN_TILT}=\"off\"" "$rules"'
 check "the tablet nodes are opened to the person at the seat" 'grep -q "ATTRS{idProduct}==\"097e\", TAG+=\"uaccess\"" "$rules"'
 check "the virtual keyboard is opened to the person at the seat" 'grep -q "KERNEL==\"uinput\".*TAG+=\"uaccess\"" "$rules"'
 check "udev is told to read its rules again" 'grep -qx "udevadm control --reload" "$work/calls"'
 check "the driver is loaded for each of the tablet's interfaces with the options" \
-	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off .*097E" "$work/calls")" = 2 ]'
+	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 .*097E" "$work/calls")" = 2 ]'
 check "another device is left alone" '! grep -q "046D" "$work/calls"'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
 
-run install "$work/$name" eraser on button
-check "installing again rewrites the options" 'grep -q "UPPER_BUTTON}=\"eraser\"" "$rules" && grep -q "LOWER_BUTTON}=\"button\"" "$rules" && grep -q "PEN_TILT}=\"on\"" "$rules" && ! grep -q "=\"toggle\"" "$rules"'
+run install "$work/$name" eraser on button none
+check "installing again rewrites the options" 'grep -q "UPPER_BUTTON}=\"eraser\"" "$rules" && grep -q "LOWER_BUTTON}=\"button\"" "$rules" && grep -q "PEN_TILT}=\"on\"" "$rules" && ! grep -q "=\"toggle\"" "$rules" && grep -q "SWITCH_KEYS}=\"\"" "$rules"'
 
 : > "$work/calls"
 run remove
@@ -87,11 +88,14 @@ refused() {
 		failures=$((failures + 1))
 	fi
 }
-refused "an upper button that is neither" install "$work/$name" both on
-refused "a tilt that is neither" install "$work/$name" eraser maybe
+refused "an upper button that is neither" install "$work/$name" both on button none
+refused "a lower button that is neither" install "$work/$name" eraser on both none
+refused "a tilt that is neither" install "$work/$name" eraser maybe button none
 : > "$work/other.bpf.o"
-refused "an object that is not the driver" install "$work/other.bpf.o" eraser on button
-refused "a missing object" install "$work/missing/$name" eraser on button
+refused "an object that is not the driver" install "$work/other.bpf.o" eraser on button none
+refused "a missing object" install "$work/missing/$name" eraser on button none
+refused "switch keys that are not keys" install "$work/$name" eraser on button 39
+refused "an old call without the switch keys" install "$work/$name" eraser on button
 refused "too few arguments" install "$work/$name"
 refused "an unknown verb" purge
 refused "no verb"
@@ -100,7 +104,7 @@ check "a refusal calls nothing and writes nothing" '[ ! -s "$work/calls" ] && [ 
 # Without the loader the helper stops with the exit code that says so.
 rm "$work/bin/udev-hid-bpf"
 set +e
-PATH="$work/bin:/usr/bin:/bin" XPERIENCE_ROOT="$fake" "$helper" install "$work/$name" eraser on button > /dev/null 2>&1
+PATH="$work/bin:/usr/bin:/bin" XPERIENCE_ROOT="$fake" "$helper" install "$work/$name" eraser on button none > /dev/null 2>&1
 code=$?
 set -e
 if command -v udev-hid-bpf > /dev/null 2>&1; then

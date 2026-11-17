@@ -2,8 +2,9 @@
 # Installs or removes the Xperience tablet driver. It changes system files, so it runs as root; the settings
 # window starts it through the system's own prompt for administrator rights.
 #
-#   xperience-driver-helper install /path/to/0010-XPPen__Artist16_3rd.bpf.o UPPER TILT LOWER
+#   xperience-driver-helper install /path/to/0010-XPPen__Artist16_3rd.bpf.o UPPER TILT LOWER KEYS
 #       UPPER and LOWER: what that pen button is, one of button, eraser, toggle.  TILT: on or off.
+#       KEYS: the tablet keys that switch between pen and eraser, as digits 1 to 8, or none.
 #   xperience-driver-helper remove
 #
 # install: hands the driver to udev-hid-bpf, writes the udev rules that carry the pen's options and let the
@@ -55,16 +56,21 @@ command -v udevadm > /dev/null 2>&1 || fail "udevadm is not installed." 3
 
 case "${1:-}" in
 install)
-	[ "$#" -eq 5 ] || fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle" 2
+	[ "$#" -eq 6 ] || fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none" 2
 	object="$2"
 	upper="$3"
 	tilt="$4"
 	lower="$5"
+	keys="$6"
 	[ -f "$object" ] || fail "$object is not a file." 2
 	[ "$(basename "$object")" = "$name" ] || fail "$object is not the Xperience driver." 2
 	case "$upper" in button|eraser|toggle) ;; *) fail "The upper button is button, eraser or toggle, not $upper." 2 ;; esac
 	case "$lower" in button|eraser|toggle) ;; *) fail "The lower button is button, eraser or toggle, not $lower." 2 ;; esac
 	case "$tilt" in on|off) ;; *) fail "Tilt is on or off, not $tilt." 2 ;; esac
+	case "$keys" in
+	none) keys="" ;;
+	*[!1-8]* | "" | ?????????*) fail "The switch keys are digits 1 to 8, or none, not $keys." 2 ;;
+	esac
 
 	udev-hid-bpf install --force "$object"
 
@@ -80,7 +86,7 @@ SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
 
 # What the driver is loaded with.
-SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt"
+SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_LOWER_BUTTON}="$lower", ENV{XPERIENCE_PEN_TILT}="$tilt", ENV{XPERIENCE_PEN_SWITCH_KEYS}="$keys"
 RULES
 	mv "$rules.new" "$rules"
 	reload_rules
@@ -88,7 +94,7 @@ RULES
 	for device in $(devices); do
 		udev-hid-bpf add --replace \
 			--property "XPERIENCE_PEN_UPPER_BUTTON=$upper" --property "XPERIENCE_PEN_LOWER_BUTTON=$lower" \
-			--property "XPERIENCE_PEN_TILT=$tilt" \
+			--property "XPERIENCE_PEN_TILT=$tilt" --property "XPERIENCE_PEN_SWITCH_KEYS=$keys" \
 			"$device" "$object"
 	done
 	;;
@@ -110,6 +116,6 @@ remove)
 	reload_rules
 	;;
 *)
-	fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle | remove" 2
+	fail "usage: $0 install OBJECT button|eraser|toggle on|off button|eraser|toggle KEYS|none | remove" 2
 	;;
 esac

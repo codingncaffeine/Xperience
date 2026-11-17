@@ -9,7 +9,9 @@ name=0010-XPPen__Artist16_3rd
 build="$root/build"
 tests="$root/tests"
 
-"$root/tools/build-driver.sh" >/dev/null
+# Built for the kernel too, to see that it compiles for it. Into the test's own folder: bin/ holds the build
+# that gets installed, and a test run must not replace it.
+"$root/tools/build-driver.sh" "$build" >/dev/null
 headers=$("$root/tools/fetch-headers.sh")
 
 quiet="-fms-extensions -Wno-microsoft-anon-tag -Wno-unknown-attributes"
