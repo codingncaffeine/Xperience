@@ -119,4 +119,3 @@ pen roller and Windows Ink.
 - Each pen button as a button, an eraser while held, or a pen/eraser switch, decided in the driver.
 - Smoothing of the pen's position in the driver, for slow lines that tremble. Off unless set.
 - A record of what the tablet reports (Settings, Record), for checking pressure, tilt and keys after the fact.
-- A switch that keeps XPPen's own app from starting at login without uninstalling it.

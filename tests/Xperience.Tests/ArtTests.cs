@@ -34,7 +34,7 @@ public sealed class ArtTests : IDisposable
         string program = Path.Combine(_folder, "app", "xperience");
         Directory.CreateDirectory(Path.GetDirectoryName(program)!);
         string entry = Path.Combine(_folder, "autostart", "xperience.desktop");
-        var autostart = new Autostart(entry, program, Path.Combine(_folder, "system", "xppentablet.desktop"));
+        var autostart = new Autostart(entry, program);
 
         Assert.True(autostart.Set(true));
         Assert.Contains("Icon=input-tablet\n", File.ReadAllText(entry));
@@ -45,39 +45,5 @@ public sealed class ArtTests : IDisposable
         string text = File.ReadAllText(entry);
         Assert.Contains($"Icon={picture}\n", text);
         Assert.Contains($"Exec=\"{program}\" --background\n", text);
-    }
-
-    [Fact]
-    public void The_makers_app_is_kept_from_starting_for_this_account_without_touching_what_it_installed()
-    {
-        string system = Path.Combine(_folder, "system", "xppentablet.desktop");
-        string entry = Path.Combine(_folder, "autostart", "xperience.desktop");
-        string mine = Path.Combine(_folder, "autostart", "xppentablet.desktop");
-        var autostart = new Autostart(entry, "/opt/xperience/xperience", system);
-
-        // Not installed: nothing starts, and there is nothing to switch.
-        Assert.False(autostart.MakersAppInstalled);
-        Assert.False(autostart.MakersAppStarts);
-
-        Directory.CreateDirectory(Path.GetDirectoryName(system)!);
-        const string theirs = "[Desktop Entry]\nName=xppentablet\nExec=/usr/lib/pentablet/PenTablet.sh /mini\nType=Application\n";
-        File.WriteAllText(system, theirs);
-        Assert.True(autostart.MakersAppInstalled);
-        Assert.True(autostart.MakersAppStarts);
-
-        Assert.True(autostart.SetMakersAppStarts(false));
-        Assert.False(autostart.MakersAppStarts);
-        Assert.Contains("Hidden=true\n", File.ReadAllText(mine));
-        Assert.Equal(theirs, File.ReadAllText(system));
-
-        Assert.True(autostart.SetMakersAppStarts(true));
-        Assert.True(autostart.MakersAppStarts);
-        Assert.False(File.Exists(mine));
-
-        // An entry the person made themselves is theirs: it counts, and it is not removed.
-        File.WriteAllText(mine, "[Desktop Entry]\nHidden = true\n");
-        Assert.False(autostart.MakersAppStarts);
-        Assert.False(autostart.SetMakersAppStarts(true));
-        Assert.True(File.Exists(mine));
     }
 }

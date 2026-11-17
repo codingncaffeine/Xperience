@@ -10,8 +10,8 @@ What it needs
 - KDE Plasma 6 on Wayland. The pen's settings are the desktop's own, and Xperience reads and writes them there.
 - For the keys, the dials and the pen-button options: the package udev-hid-bpf, and a kernel with HID-BPF
   (6.3 or newer). Settings, Driver installs the driver; that asks for administrator rights once.
-- XPPen's own app must not be running while the driver is in charge. Settings has a switch that keeps it from
-  starting at login without uninstalling it.
+- XPPen's own app must not be running while the driver is in charge. Nothing of it is needed; it can be
+  uninstalled.
 
 Without the driver the pen works as the kernel provides it, and its mapping, rotation, pressure and lower
 button can be set; the keys and dials then type the shortcuts fixed in the tablet.

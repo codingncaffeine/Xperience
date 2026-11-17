@@ -13,8 +13,6 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
     bool _loading;
 
     [ObservableProperty] private string _firmwareLine = "—";
-    [ObservableProperty] private bool _makersAppInstalled;
-    [ObservableProperty] private bool _makersAppStarts;
     [ObservableProperty] private string _tabletLine = "";
     [ObservableProperty] private string _modeLine = "";
     [ObservableProperty] private string _desktopLine = "";
@@ -74,8 +72,6 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
             KeysDisabled = config.KeysDisabled;
             KeepRunning = config.KeepRunning;
             StartWithDesktop = main.Autostart.Enabled;
-            MakersAppInstalled = main.Autostart.MakersAppInstalled;
-            MakersAppStarts = main.Autostart.MakersAppStarts;
             ShowDriver(main.DriverStatus, presence.Mode);
         }
         finally
@@ -111,15 +107,6 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
     {
         if (!_loading)
             _ = main.ChangeConfigAsync(change);
-    }
-
-    partial void OnMakersAppStartsChanged(bool value)
-    {
-        if (_loading)
-            return;
-        if (!main.Autostart.SetMakersAppStarts(value))
-            main.Problem = "The XPPen app's autostart entry in this account was not written by Xperience, so it is left as it is.";
-        Update();
     }
 
     partial void OnStartWithDesktopChanged(bool value)
@@ -175,9 +162,8 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
     Task InstallDriver() => main.Pending = InstallFromButtonAsync();
 
     /// <summary>
-    /// What the Install driver button does: it first sees to the maker's own app, which cannot run the tablet
-    /// at the same time, and then installs. The app has to be closed by the person, since closing it is theirs
-    /// to do; keeping it from coming back at the next login is done here, after saying so.
+    /// What the Install driver button does. Another program driving the tablet at the same moment is the one
+    /// thing that cannot be installed over, so that is checked first and said.
     /// </summary>
     async Task InstallFromButtonAsync()
     {
@@ -185,15 +171,6 @@ public sealed partial class SettingsViewModel(MainViewModel main, string version
         {
             main.Problem = "XPPen's own app is running, and it and the driver cannot both run the tablet. Close it first (its tray icon, Exit), then install the driver.";
             return;
-        }
-        if (main.Autostart.MakersAppStarts)
-        {
-            if (!await main.Dialogs.ConfirmAsync("Install driver",
-                "XPPen's own app is set to start when you log in, and it would take the tablet away from the driver. Xperience will keep it from starting. It stays installed, and Settings can let it start again.", "Install driver"))
-                return;
-            if (!main.Autostart.SetMakersAppStarts(false))
-                main.Log.Write("driver", "the XPPen app's autostart entry in this account is not Xperience's to change; it was left as it is");
-            Update();
         }
         await InstallDriverAsync(WantedOptions());
     }

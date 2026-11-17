@@ -172,7 +172,7 @@ public sealed class Bench : IDisposable
             Elevated.Add(string.Join(' ', command.Skip(1).Select(Path.GetFileName)));
             return Task.FromResult(Elevate(command));
         });
-        Autostart = new Autostart(Path.Combine(Folder, "autostart", "xperience.desktop"), "/opt/xperience/xperience", Path.Combine(Folder, "system", "etc/xdg/autostart/xppentablet.desktop"));
+        Autostart = new Autostart(Path.Combine(Folder, "autostart", "xperience.desktop"), "/opt/xperience/xperience");
         Main = new MainViewModel(Desktop, () => Presence, "0.0.0", "", new AppServices(Hub, Dialogs, Driver, Autostart)
         {
             Firmware = new FirmwareReader(Path.Combine(Folder, "usb"), "/dev/bus/usb", (node, index) => UsbTexts(node, index)),

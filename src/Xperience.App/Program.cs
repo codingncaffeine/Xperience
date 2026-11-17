@@ -76,7 +76,7 @@ static class Program
             store = new ConfigStore(Path.Combine(home, "config"), Path.Combine(home, "state"));
             injector = new NoInjector();
             driver = DemoDriver(Path.Combine(home, "system"), presence.Mode == DriveMode.Driver);
-            autostart = new Autostart(Path.Combine(home, "autostart", "xperience.desktop"), "xperience", Path.Combine(home, "system", "etc/xdg/autostart/xppentablet.desktop"));
+            autostart = new Autostart(Path.Combine(home, "autostart", "xperience.desktop"), "xperience");
         }
         else
         {

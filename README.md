@@ -50,7 +50,7 @@ shows up as:
 
 The settings window installs and removes it (Settings, Driver); that asks for administrator rights and needs
 the `udev-hid-bpf` package. Removing it puts the tablet back into the mode it comes in. The maker's own app
-must not be running while the driver is in charge; Settings has a switch that keeps it from starting at login.
+must not be running while the driver is in charge; with Xperience there is no need to keep it installed.
 
 ```
 tools/build-driver.sh    # needs clang and the libbpf headers; writes bin/0010-XPPen__Artist16_3rd.bpf.o

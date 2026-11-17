@@ -52,11 +52,6 @@
                         <Button Classes="action" Content="Remove driver…" Command="{Binding RemoveDriverCommand}" MinWidth="170"
                                 IsVisible="{Binding CanRemoveDriver}" />
                     </StackPanel>
-                    <StackPanel IsVisible="{Binding MakersAppInstalled}" Margin="0,4,0,0">
-                        <CheckBox Content="Let XPPen's own app start with the desktop" IsChecked="{Binding MakersAppStarts}" />
-                        <TextBlock Classes="about"
-                                   Text="XPPen's app takes the tablet over while it runs, so it and Xperience cannot both be in charge. Off leaves it installed and keeps it from starting when you log in; it can still be started by hand." />
-                    </StackPanel>
                 </StackPanel>
             </Border>
 

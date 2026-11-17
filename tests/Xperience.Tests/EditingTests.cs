@@ -501,47 +501,26 @@ public class EditingTests
     });
 
     [Fact]
-    public Task Installing_the_driver_sees_to_the_makers_app_first() => OnUi(async () =>
+    public Task The_driver_is_not_installed_over_another_program_that_runs_the_tablet() => OnUi(async () =>
     {
         using var bench = await Bench.OpenAsync();
         var main = bench.Main;
-        string theirs = Path.Combine(bench.SystemFolder, "etc/xdg/autostart/xppentablet.desktop");
-        Directory.CreateDirectory(Path.GetDirectoryName(theirs)!);
-        File.WriteAllText(theirs, "[Desktop Entry]\nName=xppentablet\nType=Application\n");
-        await main.RefreshAsync();
-        Assert.True(main.Settings.MakersAppStarts);
-
-        // Saying no leaves everything as it is.
-        bench.Dialogs.Confirm = false;
-        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
-        await main.Pending;
-        Assert.Equal(["confirm Install driver"], bench.Dialogs.Asked);
-        Assert.Empty(bench.Elevated);
-        Assert.True(bench.Autostart.MakersAppStarts);
-
-        // Saying yes keeps the maker's app from starting, without touching what it installed, and installs.
-        bench.Dialogs.Confirm = true;
-        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
-        await main.Pending;
-        Assert.False(bench.Autostart.MakersAppStarts);
-        Assert.False(main.Settings.MakersAppStarts);
-        Assert.True(File.Exists(theirs));
-        Assert.Single(bench.Elevated);
-
-        // The next install has nothing left to ask.
-        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
-        await main.Pending;
-        Assert.Equal(2, bench.Dialogs.Asked.Count(a => a == "confirm Install driver"));
-        Assert.Equal(2, bench.Elevated.Count);
-
-        // While the maker's app runs, the driver is not installed over it.
         bench.Presence = bench.Presence with { VendorAppRunning = true };
         await main.RefreshAsync();
-        int before = bench.Elevated.Count;
+
         await main.Settings.InstallDriverCommand.ExecuteAsync(null);
         await main.Pending;
-        Assert.Equal(before, bench.Elevated.Count);
+        Assert.Empty(bench.Elevated);
         Assert.Contains("Close it first", main.Problem);
+        Assert.Empty(bench.Dialogs.Asked);
+
+        // Once it is closed the same button installs, with nothing asked.
+        bench.Presence = bench.Presence with { VendorAppRunning = false };
+        await main.RefreshAsync();
+        await main.Settings.InstallDriverCommand.ExecuteAsync(null);
+        await main.Pending;
+        Assert.Single(bench.Elevated);
+        Assert.Empty(bench.Dialogs.Asked);
     });
 
     [Fact]
