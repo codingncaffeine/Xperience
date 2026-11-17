@@ -14,3 +14,6 @@
 *.user
 .vs/
 .idea/
+
+# Release artifacts.
+/packaging/out/
