@@ -40,7 +40,9 @@ public sealed partial class HomeViewModel(MainViewModel main) : ObservableObject
         // The picture has the keys where they are on the tablet; the profile has them in the order they run as held.
         var turn = main.Snapshot.Pen?.Turn ?? TabletTurn.None;
         KeyLabels = [.. Enumerable.Range(0, Profile.KeyCount).Select(own => profile.Key(HeldOrder.Key(own, turn)).Label)];
-        DialLabels = [.. Enumerable.Range(0, Profile.DialCount).Select(own => HeldOrder.Dial(own, turn)).Select(d => profile.Dial(d, slots[d]).Label)];
+        // A dial is named with its number, the one the "Switch dial" keys go by, and the function it is on now.
+        DialLabels = [.. Enumerable.Range(0, Profile.DialCount).Select(own => HeldOrder.Dial(own, turn))
+            .Select(d => string.Create(CultureInfo.CurrentCulture, $"Dial {d + 1}  ·  {profile.Dial(d, slots[d]).Label}"))];
         string active = main.Hub.ActiveProfile.App;
         Profiles = [.. config.Profiles.Select(p => new ProfileTab(p.Name, p.App, p.App.Equals(profile.App, StringComparison.OrdinalIgnoreCase),
             config.Profiles.Count > 1 && p.App.Equals(active, StringComparison.OrdinalIgnoreCase)))];

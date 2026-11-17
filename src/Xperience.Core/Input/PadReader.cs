@@ -10,6 +10,8 @@ public sealed class PadReader : IDisposable
 {
     readonly FileStream _stream;
     readonly Action<int, bool> _onKey;
+    const ushort EvMsc = 4;
+
     readonly Action<ushort, ushort, int>? _onEvent;
     volatile bool _stopped;
 
@@ -51,7 +53,8 @@ public sealed class PadReader : IDisposable
             while (!_stopped)
             {
                 _stream.ReadExactly(record);
-                if (_onEvent != null && Raw(record) is var (type, code, value) && type != KernelInput.EvSyn)
+                // The scan code the kernel sends along with every key says nothing the key itself does not.
+                if (_onEvent != null && Raw(record) is var (type, code, value) && type != KernelInput.EvSyn && type != EvMsc)
                     _onEvent(type, code, value);
                 if (Decode(record) is var (key, down))
                     _onKey(key, down);

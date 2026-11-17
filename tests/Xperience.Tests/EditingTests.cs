@@ -136,14 +136,14 @@ public class EditingTests
 
         await main.Home.EditDial(0);
 
-        Assert.Equal(["Scroll", "Brush size"], main.Home.DialLabels);
+        Assert.Equal(["Dial 1  ·  Scroll", "Dial 2  ·  Brush size"], main.Home.DialLabels);
         Assert.Equal("Scroll", bench.Desktop.Binding(Rebind.Dials, "0"));
 
         // The key that switches dial 1 goes on to the next function that does something, around the end.
         await bench.Hub.KeyAsync(3, true);
         await main.RefreshAsync();
         Assert.Equal("AxisKey,Ctrl+Shift+Z,Ctrl+Z,1", bench.Desktop.Binding(Rebind.Dials, "0"));
-        Assert.Equal("Ctrl+Z / Ctrl+Shift+Z", main.Home.DialLabels[0]);
+        Assert.Equal("Dial 1  ·  Ctrl+Z / Ctrl+Shift+Z", main.Home.DialLabels[0]);
         Assert.Equal("Dial 1: Ctrl+Z / Ctrl+Shift+Z", bench.Desktop.Hints[^1]);
     });
 
@@ -277,7 +277,7 @@ public class EditingTests
         bench.Dialogs.Confirm = true;
         await main.Home.ResetKeys();
         Assert.Equal("Ctrl+Z", main.Home.KeyLabels[7]);
-        Assert.Equal(["Zoom", "Brush size"], main.Home.DialLabels);
+        Assert.Equal(["Dial 1  ·  Zoom", "Dial 2  ·  Brush size"], main.Home.DialLabels);
         Assert.Equal("Key,Ctrl+Z", bench.Desktop.Binding(Rebind.Keys, "7"));
         Assert.Equal("AxisKey,Ctrl+=,Ctrl+-,1", bench.Desktop.Binding(Rebind.Dials, "0"));
     });

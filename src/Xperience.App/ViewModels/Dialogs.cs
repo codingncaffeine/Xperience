@@ -187,6 +187,8 @@ public sealed partial class ActionDialogViewModel : ObservableObject
             : action.Kind == ActionKind.Default ? "The button stays a plain pen button, and each application decides what it does."
             : action.Kind == ActionKind.Disabled ? "The control does nothing."
             : action is { Kind: ActionKind.Special, Special: SpecialAct.PenEraser } ? "The driver carries this out: each press switches between pen and eraser. Setting it reloads the driver, which asks for administrator rights."
+            : action is { Kind: ActionKind.Special, Special: SpecialAct.SwitchDial1 or SpecialAct.SwitchDial2 }
+                ? $"Each press moves dial {(action.Special == SpecialAct.SwitchDial1 ? 1 : 2)} on to the next of its four functions. Which four those are is set by clicking that dial on the tablet's picture. Xperience carries this out, so it has to be running."
             : Assignments.NeedsXperience(action) ? "Xperience carries this out itself, so it has to be running."
             : "The desktop carries this out by itself, whether or not Xperience is running.";
     }
@@ -245,6 +247,10 @@ public sealed partial class DialDialogViewModel : ObservableObject
     }
 
     public string Title { get; }
+
+    /// <summary>What the list is and how the dial gets from one function to the next, naming the key that does it.</summary>
+    public string Hint => $"The dial is on one of these at a time: the one with the dot. A key set to \"Switch {Title.ToLowerInvariant()} function\" moves it on to the next, top to bottom and round again, passing over any set to Disabled.";
+
     public ObservableCollection<DialSlotViewModel> Slots { get; } = [];
     public IReadOnlyList<string> Kinds { get; } = ["Zoom", "Scroll", "Brush size", "Rotate", "Custom shortcuts", "Disabled"];
 
