@@ -20,7 +20,7 @@ optdepends=("plasma-desktop: the pen settings Xperience reads and writes are KDE
             "libkscreen: brightness of the tablet's screen, and the list of monitors")
 options=('!strip')   # a self-contained .NET bundle: stripping breaks it
 source=("Xperience-$pkgver-linux-x64.tar.gz::$url/releases/download/v$pkgver/Xperience-$pkgver-linux-x64.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('544c7cf451ec36eb28a2123495285afe859b79cf80dd89e5f3cb8fdd81c5365f')
 noextract=("Xperience-$pkgver-linux-x64.tar.gz")
 
 prepare() {

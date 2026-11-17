@@ -8,8 +8,8 @@ Run ./xperience from this folder (or "xperience" once installed from a package).
 What it needs
 -------------
 - KDE Plasma 6 on Wayland. The pen's settings are the desktop's own, and Xperience reads and writes them there.
-- For the keys, the dials and the pen-button options: the package udev-hid-bpf, and a kernel with HID-BPF
-  (6.3 or newer). Settings, Driver installs the driver; that asks for administrator rights once.
+- For the keys, the dials and the pen-button options: a kernel with HID-BPF. Settings, Driver installs the
+  driver; that asks for administrator rights once and brings along the package udev-hid-bpf when it is missing.
 - XPPen's own app must not be running while the driver is in charge. Nothing of it is needed; it can be
   uninstalled.
 

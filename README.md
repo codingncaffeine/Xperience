@@ -16,7 +16,9 @@ It runs on KDE Plasma 6 (Wayland). Nothing of the maker's own driver or software
 - **Anywhere else**: unpack the `linux-x64` bundle and run `./xperience`.
 
 Then start Xperience and press Settings, Driver, **Install driver**. It asks for administrator rights once and
-brings along `udev-hid-bpf`, the system's loader for such drivers, when that is not installed yet.
+brings along `udev-hid-bpf`, the system's loader for such drivers, when that is not installed yet. The driver
+needs a kernel with HID-BPF; without one the pen still works and its settings apply, and the keys and dials
+stay as the tablet has them.
 
 ## Settings app
 
@@ -38,7 +40,7 @@ handed to the desktop as its own tablet button bindings, so they work without Xp
 (several shortcuts in a row, hints, dial switching, profiles, the floating menu) needs it in the background,
 where it sits behind a tray icon.
 
-`bin/xperience --status` prints what was found on this machine. While it runs, Xperience keeps a record of
+`xperience --status` prints what was found on this machine. While it runs, Xperience keeps a record of
 what the tablet reports and what was done with it (each stroke's pressure, tilt and reach, every key, dial turn
 and pen button) in `~/.local/state/xperience/xperience.log`; Settings shows where it is. It stays on the
 computer.
