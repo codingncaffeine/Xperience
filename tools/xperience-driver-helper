@@ -8,7 +8,8 @@
 #       SMOOTHING: how many of the pen's positions are averaged, 1 (none) to 8.
 #   xperience-driver-helper remove
 #
-# install: brings udev-hid-bpf from the distribution when it is missing, hands the driver to it, writes the udev rules that carry the pen's options and let the
+# install: brings udev-hid-bpf from the distribution when it is missing, hands the driver to it, gives the
+#          kernel back any interface of the tablet another program took, checks the pen came back, writes the udev rules that carry the pen's options and let the
 #          person at the seat read the tablet's input nodes and create the virtual keyboard, then loads the
 #          driver for a tablet that is plugged in.
 # remove:  unloads the driver, puts the tablet back into the mode it comes in, and takes those files away again.
@@ -43,6 +44,38 @@ leave_raw_mode() {
 			[ -e "$node" ] || continue
 			printf '\002\260\002\000\000\000\000\000\000\000' > "$node" 2> /dev/null || true
 		done
+	done
+}
+
+# A program that drives the tablet itself, as its maker's does, takes the tablet's vendor interface away from
+# the kernel and does not give it back, not even when it has ended. Without that interface the driver has no
+# pen and no keys to hand on. Every interface of the tablet that no kernel driver holds is given back to the
+# kernel's own HID driver, which is what unplugging the tablet and plugging it back in would do.
+give_back_interfaces() {
+	for usb in "$root"/sys/bus/usb/devices/*; do
+		[ "$(cat "$usb/idVendor" 2> /dev/null)" = 28bd ] || continue
+		[ "$(cat "$usb/idProduct" 2> /dev/null)" = 097e ] || continue
+		for interface in "$usb"/*:*; do
+			[ "$(cat "$interface/bInterfaceClass" 2> /dev/null)" = 03 ] || continue
+			[ -e "$interface/driver" ] && continue
+			basename "$interface" > "$root/sys/bus/usb/drivers/usbhid/bind" 2> /dev/null || true
+		done
+	done
+	udevadm settle --timeout=5 || true
+}
+
+# True once the tablet is there as something to draw with: an input device under one of its HID devices. With
+# the driver loaded the tablet's own two input interfaces are switched off, so any input device left is the
+# driver's. Waits a few seconds for it, since the kernel makes the devices anew.
+pen_is_back() {
+	left=${XPERIENCE_SETTLE_SECONDS:-6}
+	while :; do
+		for input in "$root"/sys/bus/hid/devices/0003:28BD:097E.*/input/input*; do
+			[ -e "$input" ] && return 0
+		done
+		[ "$left" -gt 0 ] || return 1
+		left=$((left - 1))
+		sleep 1
 	done
 }
 
@@ -152,6 +185,7 @@ SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIEN
 RULES
 	mv "$rules.new" "$rules"
 	reload_rules
+	give_back_interfaces
 
 	for device in $(devices); do
 		if ! udev-hid-bpf add --replace \
@@ -167,6 +201,13 @@ RULES
 		fi
 	done
 	rm -f "$log"
+
+	# Loaded is not yet working: the tablet has to be there as a pen again. When it is not, the driver is
+	# taken out, so nobody is left with a tablet that does nothing.
+	if ! pen_is_back; then
+		take_out
+		fail "The driver loaded, but the tablet did not come back as a pen, so the driver was taken out again. Unplug the tablet and plug it back in; it then works as it did before." 6
+	fi
 	;;
 remove)
 	[ "$#" -eq 1 ] || fail "usage: $0 remove" 2

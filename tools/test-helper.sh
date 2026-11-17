@@ -20,6 +20,14 @@ mkdir -p "$fake/dev" "$fake/sys/bus/hid/devices/0003:28BD:097E.0007/hidraw/hidra
 echo "HID_PHYS=usb-0000:0b:00.3-2/input0" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0007/uevent"
 echo "HID_PHYS=usb-0000:0b:00.3-2/input2" > "$fake/sys/bus/hid/devices/0003:28BD:097E.0009/uevent"
 echo "HID_PHYS=usb-0000:0b:00.3-1/input2" > "$fake/sys/bus/hid/devices/0003:046D:C52B.0001/uevent"
+# The tablet as the kernel lists it on USB: three HID interfaces, the third one held by no driver, the way the
+# maker's own program leaves it. And a mouse of another maker, with an interface held by nothing too.
+usb="$fake/sys/bus/usb/devices"
+mkdir -p "$usb/1-2/1-2:1.0/driver" "$usb/1-2/1-2:1.1/driver" "$usb/1-2/1-2:1.2" "$usb/3-1/3-1:1.0" "$fake/sys/bus/usb/drivers/usbhid"
+echo 28bd > "$usb/1-2/idVendor"; echo 097e > "$usb/1-2/idProduct"
+echo 046d > "$usb/3-1/idVendor"; echo c52b > "$usb/3-1/idProduct"
+for interface in "$usb/1-2/1-2:1.0" "$usb/1-2/1-2:1.1" "$usb/1-2/1-2:1.2" "$usb/3-1/3-1:1.0"; do echo 03 > "$interface/bInterfaceClass"; done
+export XPERIENCE_SETTLE_SECONDS=1
 : > "$fake/dev/hidraw1"; : > "$fake/dev/hidraw4"; : > "$fake/dev/hidraw6"
 
 # Stand-ins: the loader copies the object and writes its rule as the real one does; both write down their arguments.
@@ -34,6 +42,19 @@ fi
 if [ "\$1" = add ] && [ -e "$work/refuse-add" ]; then
 	echo "libbpf: prog 'device_event': BPF program load failed: Permission denied" >&2
 	exit 1
+fi
+if [ "\$1" = add ]; then
+	# The device is the argument before the last. Loaded onto the tablet's vendor interface the driver makes
+	# the pen appear there, unless a marker file says this tablet stays silent.
+	device=""; previous=""
+	for argument; do device="\$previous"; previous="\$argument"; done
+	if grep -q "input2\\$" "\$device/uevent" 2> /dev/null && [ ! -e "$work/no-pen" ]; then
+		mkdir -p "\$device/input/input7"
+	fi
+fi
+if [ "\$1" = remove ]; then
+	for device; do :; done
+	rm -rf "\$device/input"
 fi
 if [ "\$1" = install ]; then
 	mkdir -p "$fake/etc/udev-hid-bpf" "$fake/etc/udev/rules.d"
@@ -72,6 +93,7 @@ check "the virtual keyboard is opened to the person at the seat" 'grep -q "KERNE
 check "udev is told to read its rules again" 'grep -qx "udevadm control --reload" "$work/calls"'
 check "the driver is loaded for each of the tablet's interfaces with the options" \
 	'[ "$(grep -c "^udev-hid-bpf add --replace --property XPERIENCE_PEN_UPPER_BUTTON=button --property XPERIENCE_PEN_LOWER_BUTTON=toggle --property XPERIENCE_PEN_TILT=off --property XPERIENCE_PEN_SWITCH_KEYS=36 --property XPERIENCE_PEN_SMOOTHING=4 .*097E" "$work/calls")" = 2 ]'
+check "the interface no driver held is given back to the kernel, and only that one" '[ "$(cat "$fake/sys/bus/usb/drivers/usbhid/bind")" = "1-2:1.2" ]'
 check "another device is left alone" '! grep -q "046D" "$work/calls"'
 check "the rules are installed before the driver is loaded" \
 	'[ "$(grep -n "control --reload" "$work/calls" | head -1 | cut -d: -f1)" -lt "$(grep -n "add --replace" "$work/calls" | head -1 | cut -d: -f1)" ]'
@@ -140,11 +162,25 @@ check "what the kernel said is passed on" 'echo "$said" | grep -q "BPF program l
 check "and the driver is taken out again" '[ ! -e "$rules" ] && [ ! -e "$fake/etc/udev-hid-bpf/$name" ] && [ ! -e "$fake/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd.rules" ]'
 check "with the tablet put back into its own mode" '[ "$(od -An -tx1 "$fake/dev/hidraw6" | tr -d " \n")" = "02b00200000000000000" ]'
 
+# The driver loads but the tablet does not come back as a pen: the driver is taken out again and it says so.
+touch "$work/no-pen"
+rm -rf "$fake/sys/bus/hid/devices/0003:28BD:097E.0009/input"
+: > "$fake/dev/hidraw6"
+set +e
+said=$(run install "$work/$name" eraser on button none 1 2>&1)
+code=$?
+set -e
+rm "$work/no-pen"
+check "a tablet that does not come back as a pen is exit code 6" '[ "$code" = 6 ]'
+check "it says the driver was taken out" 'echo "$said" | grep -q "did not come back as a pen"'
+check "and it was: no rules, no driver" '[ ! -e "$rules" ] && [ ! -e "$fake/etc/udev-hid-bpf/$name" ]'
+
 # Without the loader. These runs see nothing of this machine's own programs but the few plain tools the helper
-# uses, so that no real package manager can be reached from a test.
-rm "$work/bin/udev-hid-bpf"
+# uses, so that no real package manager can be reached from a test. The stand-in loader is kept aside for the
+# stand-in package manager to install.
+mv "$work/bin/udev-hid-bpf" "$work/loader-stand-in"
 mkdir -p "$work/tools"
-for tool in sh basename dirname mkdir cat mv rm grep mktemp tail cp chmod; do
+for tool in sh basename dirname mkdir cat mv rm grep mktemp tail cp chmod sleep; do
 	ln -sf "$(command -v "$tool")" "$work/tools/$tool"
 done
 bare() { PATH="$work/bin:$work/tools" XPERIENCE_ROOT="$fake" "$helper" "$@"; }
@@ -163,11 +199,7 @@ check "and nothing was installed or loaded" '[ ! -s "$work/calls" ]'
 cat > "$work/bin/pacman" <<STUB
 #!/bin/sh
 echo "pacman \$*" >> "$work/calls"
-cat > "$work/bin/udev-hid-bpf" <<LOADER
-#!/bin/sh
-echo "udev-hid-bpf \\\$*" >> "$work/calls"
-LOADER
-chmod +x "$work/bin/udev-hid-bpf"
+cp "$work/loader-stand-in" "$work/bin/udev-hid-bpf"
 STUB
 chmod +x "$work/bin/pacman"
 : > "$work/calls"
