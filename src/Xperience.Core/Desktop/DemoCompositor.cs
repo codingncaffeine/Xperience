@@ -9,6 +9,8 @@ public sealed class DemoCompositor : ICompositor
     readonly Lock _gate = new();
     IReadOnlyList<ScreenInfo> _screens;
     PenState? _pen;
+    string? _padName;
+    readonly Dictionary<string, Rebind> _rebinds = [];
 
     public DemoCompositor(IReadOnlyList<ScreenInfo> screens, PenState? pen)
     {
@@ -27,16 +29,40 @@ public sealed class DemoCompositor : ICompositor
             new("DP-5", 4, new RectD(8800, 0, 1423, 800), 1.35, ScreenRotation.Half),
         ];
         var pen = new PenState("event29", "XPPen Artist 16 3rd", ScreenTargetKind.OneScreen, "DP-2", RectD.Full, Flipped: true,
-            MouseMode: false, PressureSettings.Default, CanFlip: true, CanSetScreenArea: true, CanSetPressureRange: true);
+            MouseMode: false, PressureSettings.Default, CanFlip: true, CanSetScreenArea: true, CanSetPressureRange: true)
+        {
+            CanSetMatrix = true,
+            CanSetMouseSpeed = true,
+        };
         return new DemoCompositor(screens, pen);
     }
 
     public string Name => "Demo desktop";
 
     public event Action? Changed;
+    public event Action<string>? ActiveAppChanged;
 
     /// <summary>Every write, in order, for tests to read.</summary>
     public List<string> Writes { get; } = [];
+
+    /// <summary>Every hint shown, in order.</summary>
+    public List<string> Hints { get; } = [];
+
+    /// <summary>The applications a real desktop would list as running.</summary>
+    public IReadOnlyList<AppInfo> Apps { get; set; } = [new("krita", "Krita"), new("org.kde.dolphin", "Home — Dolphin"), new("firefox", "Mozilla Firefox")];
+
+    public bool WatchingActiveApp { get; private set; }
+
+    /// <summary>The tablet's keys and dials become real controls under this name, as when the driver is loaded.</summary>
+    public void SetPad(string? name)
+    {
+        lock (_gate)
+            _padName = name;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Another window becomes the active one.</summary>
+    public void Activate(string app) => ActiveAppChanged?.Invoke(app);
 
     /// <summary>Unplugs or plugs the tablet.</summary>
     public void SetPen(PenState? pen)
@@ -56,7 +82,7 @@ public sealed class DemoCompositor : ICompositor
     public Task<DesktopSnapshot> ReadAsync(Tablets.TabletModel tablet, CancellationToken cancel = default)
     {
         lock (_gate)
-            return Task.FromResult(new DesktopSnapshot(_screens, _pen));
+            return Task.FromResult(new DesktopSnapshot(_screens, _pen) { PadName = _padName });
     }
 
     Task Change(string note, Func<PenState, PenState> change)
@@ -91,6 +117,77 @@ public sealed class DemoCompositor : ICompositor
             Writes.Add("identify");
         return Task.CompletedTask;
     }
+
+    public Task SetMatrixAsync(string penId, PenMatrix matrix, CancellationToken cancel = default) =>
+        Change($"matrix {matrix.A:0.###} {matrix.B:0.###} {matrix.C:0.###} {matrix.D:0.###} {matrix.E:0.###} {matrix.F:0.###}", p => p with { Matrix = matrix });
+
+    public Task SetMouseSpeedAsync(string penId, double speed, CancellationToken cancel = default) =>
+        Change($"speed {speed:0.##}", p => p with { MouseSpeed = speed });
+
+    public Task<IReadOnlyList<Rebind>> ReadRebindsAsync(CancellationToken cancel = default)
+    {
+        lock (_gate)
+            return Task.FromResult<IReadOnlyList<Rebind>>([.. _rebinds.Values]);
+    }
+
+    public Task WriteRebindsAsync(IReadOnlyList<Rebind> changes, CancellationToken cancel = default)
+    {
+        lock (_gate)
+        {
+            foreach (var change in changes)
+            {
+                Writes.Add($"bind {change.Group} {change.Key} = {change.Value}".TrimEnd());
+                if (change.Value.Length == 0)
+                    _rebinds.Remove(change.Id);
+                else
+                    _rebinds[change.Id] = change;
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The binding the desktop holds for one control; empty when it holds none.</summary>
+    public string Binding(string group, string key)
+    {
+        lock (_gate)
+            return _rebinds.Values.FirstOrDefault(r => r.Group == group && r.Key == key)?.Value ?? "";
+    }
+
+    public Task ShowHintAsync(string text, CancellationToken cancel = default)
+    {
+        lock (_gate)
+            Hints.Add(text);
+        return Task.CompletedTask;
+    }
+
+    public Task OpenDisplaySettingsAsync(CancellationToken cancel = default)
+    {
+        lock (_gate)
+            Writes.Add("display settings");
+        return Task.CompletedTask;
+    }
+
+    public Task ToggleShowDesktopAsync(CancellationToken cancel = default)
+    {
+        lock (_gate)
+            Writes.Add("show desktop");
+        return Task.CompletedTask;
+    }
+
+    public Task ToggleScreenKeyboardAsync(CancellationToken cancel = default)
+    {
+        lock (_gate)
+            Writes.Add("screen keyboard");
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> WatchActiveAppAsync(bool on, CancellationToken cancel = default)
+    {
+        WatchingActiveApp = on;
+        return Task.FromResult(true);
+    }
+
+    public Task<IReadOnlyList<AppInfo>> RunningAppsAsync(CancellationToken cancel = default) => Task.FromResult(Apps);
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

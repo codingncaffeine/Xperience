@@ -13,6 +13,7 @@
         <DataTemplate DataType="vm:WorkAreaViewModel"><views:WorkAreaView /></DataTemplate>
         <DataTemplate DataType="vm:PenViewModel"><views:PenView /></DataTemplate>
         <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+        <DataTemplate DataType="vm:FloatingMenuViewModel"><views:FloatingMenuView /></DataTemplate>
     </Window.DataTemplates>
 
     <Window.Styles>

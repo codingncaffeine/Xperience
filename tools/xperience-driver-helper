@@ -1,0 +1,93 @@
+#!/bin/sh
+# Installs or removes the Xperience tablet driver. It changes system files, so it runs as root; the settings
+# window starts it through the system's own prompt for administrator rights.
+#
+#   xperience-driver-helper install /path/to/0010-XPPen__Artist16_3rd.bpf.o eraser|button on|off
+#   xperience-driver-helper remove
+#
+# install: hands the driver to udev-hid-bpf, writes the udev rules that carry the pen's options and let the
+#          person at the seat read the tablet's input nodes and create the virtual keyboard, then loads the
+#          driver for a tablet that is plugged in.
+# remove:  unloads the driver and takes those files away again.
+set -eu
+
+name="0010-XPPen__Artist16_3rd.bpf.o"
+# Tests point this at a folder of their own; outside tests it is empty and the paths are the system's.
+root="${XPERIENCE_ROOT:-}"
+rules="$root/etc/udev/rules.d/70-xperience.rules"
+
+fail() {
+	echo "$1" >&2
+	exit "${2:-1}"
+}
+
+devices() {
+	for device in "$root"/sys/bus/hid/devices/0003:28BD:097E.*; do
+		[ -e "$device" ] && echo "$device"
+	done
+	return 0
+}
+
+reload_rules() {
+	udevadm control --reload
+	# Access for the person at the seat is granted when the nodes are looked at again.
+	udevadm trigger --action=change --subsystem-match=input --subsystem-match=misc || true
+}
+
+command -v udev-hid-bpf > /dev/null 2>&1 || fail "udev-hid-bpf is not installed." 3
+command -v udevadm > /dev/null 2>&1 || fail "udevadm is not installed." 3
+
+case "${1:-}" in
+install)
+	[ "$#" -eq 4 ] || fail "usage: $0 install OBJECT eraser|button on|off" 2
+	object="$2"
+	upper="$3"
+	tilt="$4"
+	[ -f "$object" ] || fail "$object is not a file." 2
+	[ "$(basename "$object")" = "$name" ] || fail "$object is not the Xperience driver." 2
+	case "$upper" in eraser|button) ;; *) fail "The upper button is eraser or button, not $upper." 2 ;; esac
+	case "$tilt" in on|off) ;; *) fail "Tilt is on or off, not $tilt." 2 ;; esac
+
+	udev-hid-bpf install --force "$object"
+
+	mkdir -p "$(dirname "$rules")"
+	# Numbered 70: access rules only count before 73, and the pen's options have to be set before the
+	# driver is loaded by the rules numbered in the 80s.
+	cat > "$rules.new" <<RULES
+# Written by Xperience. Change these through its settings window, which rewrites this file.
+
+# The person at the seat may read the tablet's keys, dials and pen, and create the virtual keyboard
+# Xperience types shortcuts with.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", TAG+="uaccess"
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+
+# What the driver is loaded with.
+SUBSYSTEM=="hid", ATTRS{idVendor}=="28bd", ATTRS{idProduct}=="097e", ENV{XPERIENCE_PEN_UPPER_BUTTON}="$upper", ENV{XPERIENCE_PEN_TILT}="$tilt"
+RULES
+	mv "$rules.new" "$rules"
+	reload_rules
+
+	for device in $(devices); do
+		udev-hid-bpf add --replace \
+			--property "XPERIENCE_PEN_UPPER_BUTTON=$upper" --property "XPERIENCE_PEN_TILT=$tilt" \
+			"$device" "$object"
+	done
+	;;
+remove)
+	[ "$#" -eq 1 ] || fail "usage: $0 remove" 2
+	for device in $(devices); do
+		udev-hid-bpf remove "$device" || true
+	done
+	rm -f "$rules" "$root/etc/udev-hid-bpf/$name"
+	# The rule udev-hid-bpf wrote for the driver names it; any rule file that does goes with it.
+	rm -f "$root"/etc/udev/rules.d/99-hid-bpf-0010-XPPen__Artist16_3rd*.rules
+	for rule in "$root"/etc/udev/rules.d/*hid-bpf*.rules; do
+		[ -e "$rule" ] || continue
+		if grep -q "$name" "$rule"; then rm -f "$rule"; fi
+	done
+	reload_rules
+	;;
+*)
+	fail "usage: $0 install OBJECT eraser|button on|off | remove" 2
+	;;
+esac

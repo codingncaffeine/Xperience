@@ -25,6 +25,8 @@ public sealed class PenReader : IDisposable
     PenReader(FileStream stream)
     {
         _stream = stream;
+        MaxX = AxisMax(stream, Input.KernelInput.EviocgAbsX);
+        MaxY = AxisMax(stream, Input.KernelInput.EviocgAbsY);
         _thread = new Thread(Run) { IsBackground = true, Name = "pen reader" };
         _thread.Start();
     }
@@ -44,6 +46,34 @@ public sealed class PenReader : IDisposable
         }
     }
 
+    /// <summary>The largest X and Y the pen reports, as the kernel has them; 0 when it would not say.</summary>
+    public int MaxX { get; }
+    public int MaxY { get; }
+
+    /// <summary>Where the pen is as shares of its surface, or null while it is away or the surface's size is unknown.</summary>
+    public (double X, double Y)? Position
+    {
+        get
+        {
+            var sample = Latest;
+            return sample.InRange && MaxX > 0 && MaxY > 0 ? (Math.Clamp(sample.X / (double)MaxX, 0, 1), Math.Clamp(sample.Y / (double)MaxY, 0, 1)) : null;
+        }
+    }
+
+    /// <summary>Asks the kernel for an axis's range: six 32-bit numbers, the third of them the maximum.</summary>
+    static int AxisMax(FileStream stream, uint request)
+    {
+        byte[] info = new byte[Input.KernelInput.AbsInfoSize];
+        try
+        {
+            return Input.Libc.Control(stream.SafeFileHandle, request, info, out _) ? BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(8)) : 0;
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return 0;
+        }
+    }
+
     /// <summary>The newest report. Safe from any thread.</summary>
     public PenSample Latest
     {
@@ -56,6 +86,12 @@ public sealed class PenReader : IDisposable
 
     /// <summary>True once the node has gone away or been closed.</summary>
     public bool Ended => _stopped;
+
+    /// <summary>
+    /// Raised on the reader's thread when a pen button goes down or up: true for the upper button, then
+    /// whether it is down.
+    /// </summary>
+    public event Action<bool, bool>? ButtonChanged;
 
     void Run()
     {
@@ -98,8 +134,16 @@ public sealed class PenReader : IDisposable
                         pending = pending with { InRange = pen || rubber, Eraser = rubber };
                         if (!pending.InRange)
                             pending = pending with { Pressure = 0, Touching = false };
+                        PenSample before;
                         lock (_gate)
+                        {
+                            before = _latest;
                             _latest = pending;
+                        }
+                        if (before.LowerButton != pending.LowerButton)
+                            ButtonChanged?.Invoke(false, pending.LowerButton);
+                        if (before.UpperButton != pending.UpperButton)
+                            ButtonChanged?.Invoke(true, pending.UpperButton);
                         break;
                 }
             }

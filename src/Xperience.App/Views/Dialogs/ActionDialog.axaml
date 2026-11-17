@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Xperience.App.ViewModels"
+        xmlns:c="using:Xperience.App.Controls"
+        x:Class="Xperience.App.Views.Dialogs.ActionDialog"
+        x:DataType="vm:ActionDialogViewModel"
+        Title="{Binding Title}"
+        Width="780" Height="620" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource XpBg}">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,20">
+        <TextBlock Classes="title" Text="{Binding Title}" FontSize="17" Margin="0,0,0,16" />
+        <Grid Grid.Row="1" ColumnDefinitions="210,24,*">
+            <!-- The kinds of action -->
+            <StackPanel Spacing="8">
+                <RadioButton Classes="tab" GroupName="kind" Content="Shortcut keys" IsChecked="{Binding IsShortcut}" />
+                <RadioButton Classes="tab" GroupName="kind" Content="Mouse control" IsChecked="{Binding IsMouse}" IsVisible="{Binding ShowMouse}" />
+                <RadioButton Classes="tab" GroupName="kind" Content="Run application" IsChecked="{Binding IsRun}" />
+                <RadioButton Classes="tab" GroupName="kind" Content="Other" IsChecked="{Binding IsOther}" />
+            </StackPanel>
+
+            <Border Grid.Column="2" Classes="card" Padding="18">
+                <Grid>
+                    <!-- Shortcut keys -->
+                    <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsShortcut}">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,12">
+                            <TextBlock Classes="heading" Text="KEYBOARD  ·  UP TO 20 IN A ROW" VerticalAlignment="Center" />
+                            <ToggleButton Grid.Column="1" Classes="chip" Content="Super +" IsChecked="{Binding AddSuper}"
+                                          ToolTip.Tip="Add the Super key to the next shortcut you press" />
+                            <Button Grid.Column="2" Classes="icon" Margin="8,0,0,0" Click="OnUndo" ToolTip.Tip="Take the last one back">
+                                <PathIcon Data="{StaticResource IconUndo}" Width="16" Height="16" />
+                            </Button>
+                            <Button Grid.Column="3" Classes="icon" Margin="8,0,0,0" Click="OnClearKeys" ToolTip.Tip="Clear">
+                                <PathIcon Data="{StaticResource IconClear}" Width="16" Height="16" />
+                            </Button>
+                        </Grid>
+                        <c:ShortcutBox x:Name="KeysBox" Grid.Row="1" Keys="{Binding Keys}" Max="20" AddSuper="{Binding AddSuper}"
+                                       VerticalAlignment="Stretch" />
+                        <TextBlock Grid.Row="2" Classes="muted" FontSize="12.5" Margin="0,12,0,0"
+                                   Text="One shortcut is held for as long as the control is held, so Alt or Space work as on a keyboard. Several are typed one after another." />
+                    </Grid>
+
+                    <!-- Mouse control -->
+                    <Grid RowDefinitions="Auto,Auto,Auto,*" IsVisible="{Binding IsMouse}">
+                        <TextBlock Classes="heading" Text="HOLD" Margin="0,0,0,10" />
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,16">
+                            <CheckBox Content="Shift" IsChecked="{Binding Shift}" Margin="0,0,22,0" />
+                            <CheckBox Content="Ctrl" IsChecked="{Binding Ctrl}" Margin="0,0,22,0" />
+                            <CheckBox Content="Left Alt" IsChecked="{Binding LeftAlt}" Margin="0,0,22,0" />
+                            <CheckBox Content="Right Alt" IsChecked="{Binding RightAlt}" Margin="0,0,22,0" />
+                            <CheckBox Content="Space" IsChecked="{Binding Space}" />
+                        </WrapPanel>
+                        <TextBlock Grid.Row="2" Classes="heading" Text="AND" Margin="0,0,0,10" />
+                        <ListBox Grid.Row="3" Classes="choices" ItemsSource="{Binding MouseActions}" SelectedIndex="{Binding MouseIndex}" />
+                    </Grid>
+
+                    <!-- Run application -->
+                    <StackPanel Spacing="12" IsVisible="{Binding IsRun}">
+                        <TextBlock Classes="heading" Text="PROGRAM TO START" />
+                        <Grid ColumnDefinitions="*,10,Auto">
+                            <TextBox Text="{Binding App}" PlaceholderText="/usr/bin/krita" MinHeight="40" VerticalContentAlignment="Center" />
+                            <Button Grid.Column="2" Classes="action" Content="Browse…" Click="OnBrowse" />
+                        </Grid>
+                        <TextBlock Classes="muted" FontSize="12.5" Text="A program's file, with anything it should be started with after it." />
+                    </StackPanel>
+
+                    <!-- Other -->
+                    <ListBox Classes="choices" ItemsSource="{Binding Others}" SelectedItem="{Binding Other}" IsVisible="{Binding IsOther}" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" RowDefinitions="Auto,Auto" Margin="0,16,0,0">
+            <TextBlock Classes="muted" FontSize="12.5" Text="{Binding Note}" MinHeight="18" />
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,240,*,Auto,10,Auto,10,Auto" Margin="0,12,0,0">
+                <TextBlock Classes="muted" Text="Name" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="Your own name for it (optional)" MinHeight="40"
+                         VerticalContentAlignment="Center" MaxLength="40" />
+                <Button Grid.Column="3" Classes="action" Content="Default" Command="{Binding UseDefaultCommand}" />
+                <Button Grid.Column="5" Classes="action" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="96" />
+                <Button Grid.Column="7" Classes="action primary" Content="OK" Click="OnOk" MinWidth="96" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -111,6 +111,108 @@
         <Setter Property="Foreground" Value="{DynamicResource XpAccent}" />
     </Style>
 
+    <!-- The kinds of action down the side of the assignment dialog. -->
+    <Style Selector="RadioButton.tab">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="Frame" CornerRadius="10" Padding="16,12" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                    <ContentPresenter x:Name="PART_ContentPresenter" Content="{TemplateBinding Content}" FontWeight="Medium"
+                                      Foreground="{DynamicResource XpTextMuted}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.tab:pointerover /template/ Border#Frame">
+        <Setter Property="Background" Value="{DynamicResource XpCard}" />
+    </Style>
+    <Style Selector="RadioButton.tab:checked /template/ Border#Frame">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpAccent}" />
+    </Style>
+    <Style Selector="RadioButton.tab:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+
+    <!-- A small switch that looks like a tag. -->
+    <Style Selector="ToggleButton.chip">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Background" Value="{DynamicResource XpCard}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource XpTextMuted}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpAccent}" />
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+
+    <!-- A profile's tab on the tablet page. -->
+    <Style Selector="Button.profile">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="16,4" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource XpTextMuted}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.profile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource XpCard}" />
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+    <Style Selector="Button.profile.picked">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpAccent}" />
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+    <Style Selector="Button.profile.picked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+    </Style>
+
+    <!-- One of the floating menu's buttons, on its setup page and in the menu itself. -->
+    <Style Selector="Button.tile">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource XpCard}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource XpCardHover}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource XpAccent}" />
+        <Setter Property="Foreground" Value="{DynamicResource XpText}" />
+    </Style>
+    <Style Selector="Button.tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource XpAccentSoft}" />
+    </Style>
+
+    <!-- A list to pick one line from, as in the "Other" actions. -->
+    <Style Selector="ListBox.choices">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.choices ListBoxItem">
+        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Margin" Value="0,1" />
+    </Style>
+
     <Style Selector="ComboBox">
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="CornerRadius" Value="10" />

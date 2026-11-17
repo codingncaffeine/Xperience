@@ -37,17 +37,3 @@ public sealed record TabletModel(
         ],
         Dials: [new(0.445, 0.085), new(0.555, 0.085)]);
 }
-
-/// <summary>What a key or dial does. Until our own assignments exist these are the maker's defaults.</summary>
-public static class DefaultAssignments
-{
-    /// <summary>The eight keys, top to bottom with the keys on the left.</summary>
-    public static readonly IReadOnlyList<string> Keys =
-    [
-        "Show Xperience", "B", "Alt", "Switch dial 1 function",
-        "Switch dial 2 function", "Space", "Ctrl+S", "Ctrl+Z",
-    ];
-
-    /// <summary>The two dials, top to bottom with the keys on the left.</summary>
-    public static readonly IReadOnlyList<string> Dials = ["Zoom", "Brush size"];
-}

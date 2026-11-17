@@ -10,6 +10,7 @@
     <PackageReference Include="xunit.v3" Version="$(XunitVersion)" />
     <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVersion)" />
     <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="$(TmdsDBusVersion)" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

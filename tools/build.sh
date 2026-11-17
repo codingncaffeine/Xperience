@@ -17,4 +17,6 @@ LAUNCHER
 chmod +x "$out/xperience"
 
 "$root/tools/build-driver.sh" > /dev/null
+# The settings window installs the driver through this helper, which it looks for beside itself.
+install -m 755 "$root/tools/xperience-driver-helper" "$out/app/xperience-driver-helper"
 echo "$out/xperience"

@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Xperience.App.ViewModels"
+        xmlns:c="using:Xperience.App.Controls"
+        x:Class="Xperience.App.Views.Dialogs.DialDialog"
+        x:DataType="vm:DialDialogViewModel"
+        Title="{Binding Title}"
+        Width="780" Height="560" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource XpBg}">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,20">
+        <StackPanel Spacing="6" Margin="0,0,0,14">
+            <TextBlock Classes="title" Text="{Binding Title}" FontSize="17" />
+            <TextBlock Classes="muted"
+                       Text="A dial has up to four functions and uses one at a time. The key set to switch this dial's function steps through them." />
+        </StackPanel>
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding Slots}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DialSlotViewModel">
+                    <Border Classes="card" Padding="14,10" Margin="0,0,0,10">
+                        <Grid ColumnDefinitions="118,190,14,*">
+                            <RadioButton GroupName="in-use" IsChecked="{Binding InUse}" Content="{Binding Heading}" VerticalAlignment="Center"
+                                         ToolTip.Tip="The function the dial is on now" />
+                            <ComboBox Grid.Column="1" SelectedIndex="{Binding KindIndex}" VerticalAlignment="Center"
+                                      ItemsSource="{Binding $parent[Window].((vm:DialDialogViewModel)DataContext).Kinds}" />
+                            <Grid Grid.Column="3" ColumnDefinitions="*,10,*" IsVisible="{Binding IsCustom}">
+                                <c:ShortcutBox Keys="{Binding Counterclockwise}" Placeholder="Counterclockwise" MinHeight="40" Padding="12,8" />
+                                <c:ShortcutBox Grid.Column="2" Keys="{Binding Clockwise}" Placeholder="Clockwise" MinHeight="40" Padding="12,8" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,10,Auto,10,Auto">
+            <TextBlock Classes="muted" FontSize="12.5" VerticalAlignment="Center"
+                       Text="For custom shortcuts, click a box and press the shortcut for that direction." />
+            <Button Grid.Column="1" Classes="action" Content="Default" Command="{Binding UseDefaultCommand}" />
+            <Button Grid.Column="3" Classes="action" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="96" />
+            <Button Grid.Column="5" Classes="action primary" Content="OK" Click="OnOk" MinWidth="96" />
+        </Grid>
+    </Grid>
+</Window>

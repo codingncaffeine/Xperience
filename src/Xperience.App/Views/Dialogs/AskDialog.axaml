@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Xperience.App.Views.Dialogs.AskDialog"
+        Width="480" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource XpBg}">
+    <StackPanel Margin="24,20,24,20" Spacing="16">
+        <TextBlock x:Name="Heading" Classes="title" FontSize="17" />
+        <TextBlock x:Name="Body" TextWrapping="Wrap" />
+        <ListBox x:Name="Choices" Classes="choices" MaxHeight="300" IsVisible="False" />
+        <TextBox x:Name="Entry" MinHeight="40" VerticalContentAlignment="Center" IsVisible="False" />
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Classes="action" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="96" />
+            <Button x:Name="Yes" Classes="action primary" Content="OK" Click="OnOk" MinWidth="96" />
+        </StackPanel>
+    </StackPanel>
+</Window>

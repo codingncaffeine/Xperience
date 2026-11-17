@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Xperience.App.ViewModels"
+             x:Class="Xperience.App.Views.FloatingMenuView"
+             x:DataType="vm:FloatingMenuViewModel">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Classes="icon" Command="{Binding Main.ShowHomeCommand}" ToolTip.Tip="Back to the tablet">
+                    <PathIcon Data="{StaticResource IconBack}" Width="16" Height="16" />
+                </Button>
+                <TextBlock Classes="title" Text="Floating menu" FontSize="17" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Classes="icon" Classes.picked="{Binding !Vertical}" Command="{Binding SetVerticalCommand}" CommandParameter="false"
+                        ToolTip.Tip="Four across, two down">
+                    <PathIcon Data="{StaticResource IconRows}" Width="16" Height="16" />
+                </Button>
+                <Button Classes="icon" Classes.picked="{Binding Vertical}" Command="{Binding SetVerticalCommand}" CommandParameter="true"
+                        ToolTip.Tip="Two across, four down">
+                    <PathIcon Data="{StaticResource IconColumns}" Width="16" Height="16" />
+                </Button>
+                <Button Classes="action primary" MinHeight="38" Padding="20,4" Content="Show" Command="{Binding ShowMenuCommand}" Margin="8,0,0,0"
+                        ToolTip.Tip="Show or hide the floating menu" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="1" Classes="muted" Margin="0,14,0,0"
+                   Text="A small window of eight buttons that stays above other windows, for tapping with the pen. Click a button here to change what it does." />
+
+        <Border Grid.Row="2" Classes="card" Margin="0,18,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <ItemsControl x:Name="Tiles" ItemsSource="{Binding Labels}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Rows="2" Columns="4" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Button Classes="tile" Margin="6" MinHeight="96" MinWidth="160" Click="OnTile">
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <TextBlock Grid.Row="3" Classes="muted" FontSize="12.5"
+                   Text="The menu's own top row has a pin that holds it in place, a gear that opens this page and a button that closes it. A key or a pen button can be set to show it, under Other." />
+    </Grid>
+</UserControl>

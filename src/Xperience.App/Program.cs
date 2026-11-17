@@ -1,5 +1,8 @@
 using Avalonia;
+using Xperience.App.ViewModels;
 using Xperience.Core.Desktop;
+using Xperience.Core.Input;
+using Xperience.Core.Settings;
 using Xperience.Core.Tablets;
 
 namespace Xperience.App;
@@ -18,65 +21,138 @@ static class Program
         if (args.Any(a => a is "--help" or "-h"))
         {
             Console.WriteLine("""
-                Usage: xperience [--status]
+                Usage: xperience [--background | --status | --check-writes | --check-apps]
 
-                  --status         Print what was found (the tablet, the desktop, the pen's settings) and exit.
+                  --background     Start without showing the window: the tray icon, the keys' special actions,
+                                   application profiles and the floating menu are there, the window opens on request.
+                  --status         Print what was found (the tablet, the driver, the desktop, the pen's settings,
+                                   the bindings) and exit.
                   --check-writes   Write each pen setting back with the value it already has, to see that
                                    this desktop accepts it. Changes nothing.
-                  --version   Print the version and exit.
+                  --check-apps     Ask the desktop which applications have a window open and which one is
+                                   active, the way application profiles do. Changes nothing.
+                  --version        Print the version and exit.
                 """);
             return 0;
         }
 
         // Everything that waits on the bus or the disk happens here, before the UI thread exists.
         string? demo = Environment.GetEnvironmentVariable("XPERIENCE_DEMO");
+        bool tool = args.Contains("--status") || args.Contains("--check-writes") || args.Contains("--check-apps");
         ICompositor? compositor;
         Func<TabletPresence> scan;
+        ConfigStore store;
+        IInjector injector;
+        DriverSetup driver;
+        Autostart autostart;
+        string? instancePath = null;
         if (!string.IsNullOrEmpty(demo))
         {
-            // A desktop in memory, for screenshots and for looking at the window without a tablet.
-            var presence = demo.ToLowerInvariant() switch
+            // A desktop in memory, for screenshots and for looking at the window without a tablet. Nothing of
+            // the real account is read or written: the settings live in a folder of the demo's own.
+            string mode = demo.ToLowerInvariant();
+            var presence = mode switch
             {
                 "absent" => TabletPresence.None,
-                "driver" => new TabletPresence(DriveMode.Driver, null, "/dev/null", null, false),
+                "driver" => new TabletPresence(DriveMode.Driver, null, null, null, false),
                 "vendor" => new TabletPresence(DriveMode.BuiltIn, null, null, "/dev/null", true),
                 _ => new TabletPresence(DriveMode.BuiltIn, null, null, "/dev/null", false),
             };
             var sample = DemoCompositor.Sample();
             if (presence.Mode == DriveMode.Absent)
                 sample.SetPen(null);
-            if (demo.Equals("fresh", StringComparison.OrdinalIgnoreCase))
+            if (presence.Mode == DriveMode.Driver)
+                sample.SetPad("XPPen Artist 16 3rd Pad");
+            if (mode == "fresh")
             {
                 // The pen as a desktop has it before anything is set.
                 sample.SetTargetAsync("", ScreenTargetKind.ActiveScreen, "").GetAwaiter().GetResult();
                 sample.SetFlippedAsync("", false).GetAwaiter().GetResult();
             }
+            string home = Environment.GetEnvironmentVariable("XPERIENCE_DEMO_HOME") is { Length: > 0 } given
+                ? given : Path.Combine(Path.GetTempPath(), "xperience-demo-" + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
             compositor = sample;
             scan = () => presence;
+            store = new ConfigStore(Path.Combine(home, "config"), Path.Combine(home, "state"));
+            injector = new NoInjector();
+            driver = DemoDriver(Path.Combine(home, "system"), presence.Mode == DriveMode.Driver);
+            autostart = new Autostart(Path.Combine(home, "autostart", "xperience.desktop"), "xperience");
         }
         else
         {
+            instancePath = InstanceLink.DefaultPath;
+            // A second start hands over to the copy already running and leaves. A running copy of another build
+            // ends instead, and this one takes its place once it is gone.
+            if (!tool && instancePath != null)
+            {
+                var handover = InstanceLink.Send(instancePath, args.Contains("--background") ? "hello" : "show", InstanceLink.ThisBuild);
+                if (handover == Handover.Taken)
+                    return 0;
+                if (handover == Handover.Replacing && !InstanceLink.WaitUntilFree(instancePath, TimeSpan.FromSeconds(8)))
+                {
+                    Console.Error.WriteLine("Another build of Xperience is running and did not end. Quit it from its tray icon, then start again.");
+                    return 1;
+                }
+            }
             compositor = KWinCompositor.ConnectAsync().GetAwaiter().GetResult();
             scan = static () => TabletScanner.Scan(TabletModel.Artist16Third);
+            store = ConfigStore.ForThisAccount();
+            injector = new UinputInjector();
+            driver = DriverSetup.ForThisBuild();
+            autostart = Autostart.ForThisAccount();
         }
 
         if (args.Contains("--status"))
-            return PrintStatus(compositor, scan);
+            return PrintStatus(compositor, scan, driver, store);
         if (args.Contains("--check-writes"))
             return CheckWrites(compositor);
+        if (args.Contains("--check-apps"))
+            return CheckApps(compositor);
 
         App.Start = new StartupState(compositor, scan, version, BuildTime(),
-            Environment.GetEnvironmentVariable("XPERIENCE_OPEN"), Environment.GetEnvironmentVariable("XPERIENCE_THEME"));
-        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            Environment.GetEnvironmentVariable("XPERIENCE_OPEN"), Environment.GetEnvironmentVariable("XPERIENCE_THEME"),
+            store, injector, driver, autostart, args.Contains("--background"), !string.IsNullOrEmpty(demo), instancePath);
+        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnExplicitShutdown);
     }
 
-    static int PrintStatus(ICompositor? compositor, Func<TabletPresence> scan)
+    /// <summary>A make-believe system folder, so the demo shows the driver's card without touching the real one.</summary>
+    static DriverSetup DemoDriver(string root, bool installed)
+    {
+        string carried = Path.Combine(root, "build", DriverSetup.ObjectName), helper = Path.Combine(root, "build", "xperience-driver-helper");
+        Directory.CreateDirectory(Path.Combine(root, "build"));
+        Directory.CreateDirectory(Path.Combine(root, "usr/bin"));
+        File.WriteAllText(carried, "");
+        File.WriteAllText(helper, "");
+        File.WriteAllText(Path.Combine(root, "usr/bin/udev-hid-bpf"), "");
+        if (installed)
+        {
+            Directory.CreateDirectory(Path.Combine(root, "etc/udev/rules.d"));
+            Directory.CreateDirectory(Path.Combine(root, "etc/udev-hid-bpf"));
+            File.WriteAllText(Path.Combine(root, "etc/udev/rules.d/70-xperience.rules"), "");
+            File.WriteAllText(Path.Combine(root, "etc/udev-hid-bpf", DriverSetup.ObjectName), "");
+        }
+        return new DriverSetup(root, carried, helper, _ => Task.FromResult((0, "")));
+    }
+
+    static int PrintStatus(ICompositor? compositor, Func<TabletPresence> scan, DriverSetup driver, ConfigStore store)
     {
         var presence = scan();
         Console.WriteLine($"Tablet:   {presence.Mode}" + (presence.VendorAppRunning ? "  (the XPPen app is running)" : ""));
         Console.WriteLine($"  pen node      {presence.PenNode ?? "-"}");
         Console.WriteLine($"  pad node      {presence.PadNode ?? "-"}");
         Console.WriteLine($"  keyboard node {presence.KeyboardNode ?? "-"}");
+        // The pen's own node, when this account may read it: the range it reports is asked of the kernel.
+        using (var reader = Xperience.Core.Pen.PenReader.Open(presence.PenNode))
+            Console.WriteLine(reader == null ? "  pen readable  no" : $"  pen readable  yes, range {reader.MaxX} x {reader.MaxY}");
+        var status = driver.Read();
+        Console.WriteLine($"Driver:   {(status.Installed ? "installed" : "not installed")}, loader {(status.LoaderInstalled ? "present" : "missing")}, " +
+            $"this build {(status.CanInstall ? "carries it" : "does not carry it")}");
+        Console.WriteLine($"  upper button  {(status.Options.UpperIsButton ? "button" : "eraser")}");
+        Console.WriteLine($"  tilt          {(status.Options.TiltOff ? "off" : "on")}");
+        var config = store.Load();
+        Console.WriteLine($"Settings: {store.ConfigPath}");
+        Console.WriteLine($"  profiles      {string.Join(", ", config.Profiles.Select(p => p.Name))}");
+        Console.WriteLine($"  keys          {string.Join(" | ", config.DefaultProfile.Keys.Select(k => k.Label))}");
         if (compositor == null)
         {
             Console.WriteLine("Desktop:  none that Xperience can talk to");
@@ -86,6 +162,11 @@ static class Program
         Console.WriteLine($"Desktop:  {compositor.Name}");
         foreach (var screen in snapshot.Screens)
             Console.WriteLine($"  {screen.Label}  at {screen.Bounds.X:0},{screen.Bounds.Y:0}  scale {screen.Scale:0.##}  turned {(int)screen.Rotation}°");
+        if (snapshot.PadName != null)
+            Console.WriteLine($"Keys:     {snapshot.PadName}");
+        var rebinds = compositor.ReadRebindsAsync().GetAwaiter().GetResult();
+        foreach (var rebind in rebinds.Where(r => r.Device == snapshot.PadName || r.Device == snapshot.Pen?.Name))
+            Console.WriteLine($"  binding       {rebind.Group} {rebind.Key} = {rebind.Value}");
         if (snapshot.Pen is not { } pen)
         {
             Console.WriteLine("Pen:      not listed by the desktop");
@@ -94,8 +175,9 @@ static class Program
         Console.WriteLine($"Pen:      {pen.Name} ({pen.Id})");
         Console.WriteLine($"  target        {pen.TargetKind} {pen.TargetScreen}".TrimEnd());
         Console.WriteLine($"  screen area   {pen.ScreenArea.X:0.###} {pen.ScreenArea.Y:0.###} {pen.ScreenArea.Width:0.###} {pen.ScreenArea.Height:0.###}");
-        Console.WriteLine($"  turned 180°   {pen.Flipped}");
-        Console.WriteLine($"  mouse mode    {pen.MouseMode}");
+        Console.WriteLine($"  turned        {(int)pen.Turn}°  (flip {pen.Flipped})");
+        Console.WriteLine($"  calibration   {pen.Matrix.A:0.####} {pen.Matrix.B:0.####} {pen.Matrix.C:0.####} / {pen.Matrix.D:0.####} {pen.Matrix.E:0.####} {pen.Matrix.F:0.####}");
+        Console.WriteLine($"  mouse mode    {pen.MouseMode}  speed {pen.MouseSpeed:0.##}");
         Console.WriteLine($"  pressure      {pen.Pressure.Curve.ToDesktopString()}  range {pen.Pressure.RangeMin:0.###}-{pen.Pressure.RangeMax:0.###}");
         return 0;
     }
@@ -134,7 +216,9 @@ static class Program
         Try("screen area", () => compositor.SetScreenAreaAsync(before.Id, before.ScreenArea));
         Try("turned 180°", () => compositor.SetFlippedAsync(before.Id, before.Flipped));
         Try("mouse mode", () => compositor.SetMouseModeAsync(before.Id, before.MouseMode));
+        Try("mouse speed", () => compositor.SetMouseSpeedAsync(before.Id, before.MouseSpeed));
         Try("pressure", () => compositor.SetPressureAsync(before.Id, before.Pressure));
+        Try("calibration", () => compositor.SetMatrixAsync(before.Id, before.Matrix));
         PenState? after = null;
         try
         {
@@ -147,6 +231,32 @@ static class Program
         bool same = after == before;
         Console.WriteLine(same ? "Settings are exactly as they were." : $"SETTINGS CHANGED\n  before {before}\n  after  {after}");
         return failures == 0 && same ? 0 : 1;
+    }
+
+    /// <summary>Asks the desktop what application profiles need from it: the open applications and the active one.</summary>
+    static int CheckApps(ICompositor? compositor)
+    {
+        if (compositor == null)
+        {
+            Console.WriteLine("No desktop that Xperience can talk to.");
+            return 1;
+        }
+        var apps = compositor.RunningAppsAsync().GetAwaiter().GetResult();
+        Console.WriteLine($"Applications with a window open: {apps.Count}");
+        foreach (var app in apps)
+            Console.WriteLine($"  {app.Id}");
+        string active = "";
+        using var told = new ManualResetEventSlim();
+        compositor.ActiveAppChanged += app =>
+        {
+            active = app;
+            told.Set();
+        };
+        bool watching = compositor.WatchActiveAppAsync(true).GetAwaiter().GetResult();
+        bool heard = watching && told.Wait(TimeSpan.FromSeconds(3));
+        compositor.WatchActiveAppAsync(false).GetAwaiter().GetResult();
+        Console.WriteLine(heard ? $"Active application: {(active.Length > 0 ? active : "(none)")}" : "The desktop did not report the active application.");
+        return apps.Count > 0 && heard ? 0 : 1;
     }
 
     /// <summary>When this build was made, shown in Settings so it is always clear which build is running.</summary>

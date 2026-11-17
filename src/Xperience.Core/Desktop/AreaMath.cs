@@ -28,6 +28,59 @@ public static class AreaMath
         return screenAspect * screenArea.Width / screenArea.Height / surfaceAspect;
     }
 
+    /// <summary>
+    /// A smaller area inside <paramref name="area"/> for finer pen movement, placed so that the point of the
+    /// surface the pen is on, given as shares of the surface, lands on the same spot of the screen as before.
+    /// </summary>
+    public static RectD Precise(RectD area, (double X, double Y) at, double factor)
+    {
+        double width = area.Width / factor, height = area.Height / factor;
+        return new RectD(area.X + at.X * (area.Width - width), area.Y + at.Y * (area.Height - height), width, height);
+    }
+
+    /// <summary>
+    /// The largest part of the pen's surface with the same shape as what it is mapped to, centered, as shares of
+    /// the surface. Using only that part keeps circles round and still reaches all of the screen area.
+    /// </summary>
+    public static RectD Proportional(double surfaceAspect, double targetAspect) => SameShape(targetAspect, surfaceAspect);
+
+    /// <summary>
+    /// A point given as shares of a screen as it is looked at, turned into shares of the panel as it was built,
+    /// which is what the pen is mapped onto. The two differ only on a turned screen.
+    /// </summary>
+    public static (double X, double Y) ToPanel((double X, double Y) seen, ScreenRotation rotation) => rotation switch
+    {
+        ScreenRotation.Half => (1 - seen.X, 1 - seen.Y),
+        ScreenRotation.Quarter => (seen.Y, 1 - seen.X),
+        ScreenRotation.ThreeQuarter => (1 - seen.Y, seen.X),
+        _ => seen,
+    };
+
+    /// <summary>The reverse of <see cref="ToPanel(ValueTuple{double, double}, ScreenRotation)"/>.</summary>
+    public static (double X, double Y) ToSeen((double X, double Y) panel, ScreenRotation rotation) => rotation switch
+    {
+        ScreenRotation.Half => (1 - panel.X, 1 - panel.Y),
+        ScreenRotation.Quarter => (1 - panel.Y, panel.X),
+        ScreenRotation.ThreeQuarter => (panel.Y, 1 - panel.X),
+        _ => panel,
+    };
+
+    public static RectD ToPanel(RectD seen, ScreenRotation rotation) => rotation switch
+    {
+        ScreenRotation.Half => new RectD(1 - seen.Right, 1 - seen.Bottom, seen.Width, seen.Height),
+        ScreenRotation.Quarter => new RectD(seen.Y, 1 - seen.Right, seen.Height, seen.Width),
+        ScreenRotation.ThreeQuarter => new RectD(1 - seen.Bottom, seen.X, seen.Height, seen.Width),
+        _ => seen,
+    };
+
+    public static RectD ToSeen(RectD panel, ScreenRotation rotation) => rotation switch
+    {
+        ScreenRotation.Half => new RectD(1 - panel.Right, 1 - panel.Bottom, panel.Width, panel.Height),
+        ScreenRotation.Quarter => new RectD(1 - panel.Bottom, panel.X, panel.Height, panel.Width),
+        ScreenRotation.ThreeQuarter => new RectD(panel.Y, 1 - panel.Right, panel.Height, panel.Width),
+        _ => panel,
+    };
+
     /// <summary>A share-of-screen rectangle kept inside the screen and never thinner than a twentieth of it.</summary>
     public static RectD Clamp(RectD area)
     {

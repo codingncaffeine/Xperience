@@ -35,7 +35,7 @@ static class TabletPainter
             turned);
     }
 
-    public static void Draw(DrawingContext context, Control owner, Layout layout, int highlightedKey = -1)
+    public static void Draw(DrawingContext context, Control owner, Layout layout, int highlightedKey = -1, int highlightedDial = -1)
     {
         double radius = layout.Body.Height * 0.045;
         context.DrawRectangle(Palette.Brush(owner, "XpTabletBody"), Palette.Pen(owner, "XpTabletEdge", 1.5), layout.Body, radius, radius);
@@ -48,9 +48,10 @@ static class TabletPainter
             var r = layout.Keys[i];
             context.DrawRectangle(i == highlightedKey ? accent : key, null, r, r.Width * 0.22, r.Width * 0.22);
         }
-        foreach (var r in layout.Dials)
+        for (int d = 0; d < layout.Dials.Count; d++)
         {
-            context.DrawRectangle(key, null, r, r.Width / 2, r.Width / 2);
+            var r = layout.Dials[d];
+            context.DrawRectangle(d == highlightedDial ? accent : key, null, r, r.Width / 2, r.Width / 2);
             // The grip lines of a roller.
             var grip = Palette.Pen(owner, "XpTabletBody", 1);
             for (int i = 1; i <= 3; i++)

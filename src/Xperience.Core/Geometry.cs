@@ -6,9 +6,9 @@ public readonly record struct RectD(double X, double Y, double Width, double Hei
     /// <summary>The whole of a surface, as shares of it.</summary>
     public static readonly RectD Full = new(0, 0, 1, 1);
 
-    public double Right => X + Width;
-    public double Bottom => Y + Height;
-    public double Aspect => Height > 0 ? Width / Height : 0;
+    [System.Text.Json.Serialization.JsonIgnore] public double Right => X + Width;
+    [System.Text.Json.Serialization.JsonIgnore] public double Bottom => Y + Height;
+    [System.Text.Json.Serialization.JsonIgnore] public double Aspect => Height > 0 ? Width / Height : 0;
 
     /// <summary>True when both cover the same area to within a rounding step.</summary>
     public bool IsCloseTo(RectD other, double tolerance = 0.0005) =>

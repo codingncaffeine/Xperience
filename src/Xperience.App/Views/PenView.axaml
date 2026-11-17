@@ -23,11 +23,12 @@
             </Grid>
             <Border Grid.Row="1" Classes="card" Padding="8">
                 <c:CurveEditor x:Name="Editor" Curve="{Binding Curve}" RangeMin="{Binding RangeMin}" RangeMax="{Binding RangeMax}"
-                               CanMoveEnds="{Binding CanSetRange}" Live="{Binding PressureShare}" />
+                               CanMoveEnds="{Binding CanSetRange}" Live="{Binding PressureShare}" IsEnabled="{Binding PressureOn}"
+                               Opacity="{Binding PressureOn, Converter={x:Static vm:Is.Dimmed}}" />
             </Border>
             <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,12,0,14">
                 <TextBlock Classes="muted" Text="Soft" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <UniformGrid Grid.Column="1" Rows="1" HorizontalAlignment="Center">
+                <UniformGrid Grid.Column="1" Rows="1" HorizontalAlignment="Center" IsEnabled="{Binding PressureOn}">
                     <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=0}" Content="1" Command="{Binding UsePresetCommand}" CommandParameter="0" Margin="3,0" />
                     <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=1}" Content="2" Command="{Binding UsePresetCommand}" CommandParameter="1" Margin="3,0" />
                     <Button Classes="action preset" Classes.picked="{Binding Preset, Converter={x:Static vm:Is.Equal}, ConverterParameter=2}" Content="3" Command="{Binding UsePresetCommand}" CommandParameter="2" Margin="3,0" />
@@ -50,26 +51,45 @@
         </Grid>
 
         <!-- The pen and its buttons -->
-        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+        <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
             <TextBlock Classes="heading" Text="BUTTONS" Margin="0,0,0,10" />
             <c:PenArt Grid.Row="1" UpperLabel="{Binding UpperLabel}" LowerLabel="{Binding LowerLabel}"
-                      UpperPressed="{Binding UpperPressed}" LowerPressed="{Binding LowerPressed}" Touching="{Binding Touching}" />
+                      UpperPressed="{Binding UpperPressed}" LowerPressed="{Binding LowerPressed}" Touching="{Binding Touching}"
+                      UpperCommand="{Binding EditUpperCommand}" LowerCommand="{Binding EditLowerCommand}" />
+            <StackPanel Grid.Row="2" Spacing="4" Margin="0,8,0,0">
+                <TextBlock Classes="muted" FontSize="12.5" Text="Click a button to change what it does." />
+                <TextBlock Classes="muted" FontSize="12.5" Text="{Binding ProfileName}"
+                           IsVisible="{Binding ProfileName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
         </Grid>
 
         <!-- Options and the live reading -->
         <StackPanel Grid.Column="4" Spacing="16">
             <TextBlock Classes="heading" Text="OPTIONS" Margin="0,0,0,-6" />
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <CheckBox Content="Mouse mode" IsChecked="{Binding MouseMode}" />
-                    <TextBlock Classes="muted" FontSize="12.5"
-                               Text="The pen moves the pointer from where it is, like a mouse, and the pointer stays put when the pen lifts." />
+            <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="4">
+                    <CheckBox Content="Pressure" IsChecked="{Binding PressureOn}"
+                              ToolTip.Tip="Off makes every touch a full-pressure stroke" />
+                    <CheckBox Content="Tilt" IsChecked="{Binding TiltOn}" IsEnabled="{Binding CanSetDriverOptions}"
+                              ToolTip.Tip="Off stops the pen from reporting how it leans" />
+                    <CheckBox Content="Upper button erases" IsChecked="{Binding UpperIsEraser}" IsEnabled="{Binding CanSetDriverOptions}"
+                              ToolTip.Tip="Off makes the upper button a plain button that can be assigned" />
+                    <CheckBox Content="Mouse mode" IsChecked="{Binding MouseMode}"
+                              ToolTip.Tip="The pen moves the pointer from where it is, like a mouse, and the pointer stays put when the pen lifts" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="28,0,0,0" IsEnabled="{Binding MouseMode}" IsVisible="{Binding CanSetMouseSpeed}">
+                        <TextBlock Classes="muted" FontSize="12.5" Text="Slow" VerticalAlignment="Center" />
+                        <Slider x:Name="Speed" Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding MouseSpeed}" Margin="10,0"
+                                TickFrequency="0.1" IsSnapToTickEnabled="True" />
+                        <TextBlock Grid.Column="2" Classes="muted" FontSize="12.5" Text="Fast" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Classes="muted" FontSize="12" Text="{Binding DriverNote}" Margin="0,4,0,0"
+                               IsVisible="{Binding DriverNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
             </Border>
             <TextBlock Classes="heading" Text="CURRENT PRESSURE" Margin="0,4,0,-6" />
             <Border Classes="card" Padding="14,18,14,10">
                 <StackPanel Spacing="6">
-                    <c:PressureGauge Value="{Binding PressureRaw}" Maximum="{Binding PressureMax}" Height="132" />
+                    <c:PressureGauge Value="{Binding PressureRaw}" Maximum="{Binding PressureMax}" Height="112" />
                     <TextBlock Classes="muted" FontSize="12.5" Text="{Binding LiveNote}"
                                IsVisible="{Binding LiveNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>

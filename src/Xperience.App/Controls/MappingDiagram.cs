@@ -17,8 +17,9 @@ public sealed class MappingDiagram : Control
     public static readonly StyledProperty<RectD> ScreenAreaProperty = AvaloniaProperty.Register<MappingDiagram, RectD>(nameof(ScreenArea), RectD.Full);
     public static readonly StyledProperty<TabletModel?> ModelProperty = AvaloniaProperty.Register<MappingDiagram, TabletModel?>(nameof(Model));
     public static readonly StyledProperty<bool> TurnedProperty = AvaloniaProperty.Register<MappingDiagram, bool>(nameof(Turned));
+    public static readonly StyledProperty<RectD> ActiveAreaProperty = AvaloniaProperty.Register<MappingDiagram, RectD>(nameof(ActiveArea), RectD.Full);
 
-    static MappingDiagram() => AffectsRender<MappingDiagram>(ScreensProperty, TargetKindProperty, TargetScreenProperty, ScreenAreaProperty, ModelProperty, TurnedProperty);
+    static MappingDiagram() => AffectsRender<MappingDiagram>(ScreensProperty, TargetKindProperty, TargetScreenProperty, ScreenAreaProperty, ModelProperty, TurnedProperty, ActiveAreaProperty);
 
     public MappingDiagram() => ActualThemeVariantChanged += (_, _) => InvalidateVisual();
 
@@ -28,6 +29,9 @@ public sealed class MappingDiagram : Control
     public RectD ScreenArea { get => GetValue(ScreenAreaProperty); set => SetValue(ScreenAreaProperty, value); }
     public TabletModel? Model { get => GetValue(ModelProperty); set => SetValue(ModelProperty, value); }
     public bool Turned { get => GetValue(TurnedProperty); set => SetValue(TurnedProperty, value); }
+
+    /// <summary>The part of the pen's surface in use, as shares of it the way the tablet is drawn.</summary>
+    public RectD ActiveArea { get => GetValue(ActiveAreaProperty); set => SetValue(ActiveAreaProperty, value); }
 
     public override void Render(DrawingContext context)
     {
@@ -61,15 +65,17 @@ public sealed class MappingDiagram : Control
                     context.DrawText(name, new Point(r.Center.X - name.Width / 2, r.Center.Y + number.Height / 2 - 6));
             }
 
+            var one = TargetKind == ScreenTargetKind.OneScreen ? screens.FirstOrDefault(s => s.Name == TargetScreen) : null;
             RectD? target = TargetKind switch
             {
-                ScreenTargetKind.OneScreen => screens.FirstOrDefault(s => s.Name == TargetScreen)?.Bounds,
+                ScreenTargetKind.OneScreen => one?.Bounds,
                 ScreenTargetKind.AllScreens => desktop,
                 _ => null,
             };
             if (target is { } t)
             {
-                var area = ScreenArea;
+                // The area is kept in the panel's own orientation; it is drawn the way the screen is looked at.
+                var area = one != null ? AreaMath.ToSeen(ScreenArea, one.Rotation) : ScreenArea;
                 var part = new RectD(t.X + area.X * t.Width, t.Y + area.Y * t.Height, area.Width * t.Width, area.Height * t.Height);
                 reached = On(part).Deflate(1.5);
                 context.DrawRectangle(Palette.Brush(this, "XpAccentSoft"), Palette.Pen(this, "XpAccent", 2), reached.Value, 4, 4);
@@ -88,13 +94,16 @@ public sealed class MappingDiagram : Control
         var body = Palette.Fit(lower, model.WidthMm / model.HeightMm);
         var layout = TabletPainter.Measure(model, body, Turned);
         TabletPainter.Draw(context, this, layout);
-        context.DrawRectangle(Palette.Brush(this, "XpAccentSoft"), Palette.Pen(this, "XpAccent", 2), layout.Surface, 2, 2);
+        var active = ActiveArea;
+        var used = new Rect(layout.Surface.X + active.X * layout.Surface.Width, layout.Surface.Y + active.Y * layout.Surface.Height,
+            active.Width * layout.Surface.Width, active.Height * layout.Surface.Height);
+        context.DrawRectangle(Palette.Brush(this, "XpAccentSoft"), Palette.Pen(this, "XpAccent", 2), used, 2, 2);
 
         if (reached is { } region)
         {
             var join = Palette.Pen(this, "XpAccent", 1.2, new DashStyle([5, 5], 0));
-            context.DrawLine(join, region.BottomLeft, layout.Surface.TopLeft);
-            context.DrawLine(join, region.BottomRight, layout.Surface.TopRight);
+            context.DrawLine(join, region.BottomLeft, used.TopLeft);
+            context.DrawLine(join, region.BottomRight, used.TopRight);
         }
     }
 }
