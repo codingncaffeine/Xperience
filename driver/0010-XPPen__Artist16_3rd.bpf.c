@@ -319,14 +319,19 @@ int BPF_PROG(xppen_artist16_3rd_rdesc_fixup, struct hid_bpf_ctx *hctx)
 		 * Added after the vendor descriptor, not in place of it: the
 		 * command that enters raw mode is an output report of that
 		 * descriptor.
+		 *
+		 * The copy has to be made in place: a program in the kernel has
+		 * no memcpy to call, and a compiler asked for a plain copy of
+		 * this size is free to emit such a call, which the loader then
+		 * cannot resolve.
 		 */
-		__builtin_memcpy(data + rdesc_size, fixed_rdesc_vendor, sizeof(fixed_rdesc_vendor));
+		__builtin_memcpy_inline(data + rdesc_size, fixed_rdesc_vendor, sizeof(fixed_rdesc_vendor));
 		return sizeof(fixed_rdesc_vendor) + rdesc_size;
 	}
 
 	hid_set_name(hctx->hid, "Disabled by HID-BPF XPPen Artist 16 3rd");
 
-	__builtin_memcpy(data, disabled_rdesc, sizeof(disabled_rdesc));
+	__builtin_memcpy_inline(data, disabled_rdesc, sizeof(disabled_rdesc));
 	return sizeof(disabled_rdesc);
 }
 
